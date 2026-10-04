@@ -9,14 +9,12 @@ import {
   Heart,
   LockKeyhole,
   Play,
-  Plus,
-  Sparkles,
   Upload,
-  X,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { CinematicPlayer, DeveloperDashboard, UploadDrawer, type ArchiveEdit } from "@/components/archive-experiences";
 import coastalMemory from "@/assets/coastal-memory.jpg";
 import neonAfterglow from "@/assets/neon-afterglow.jpg";
 import tidalStudy from "@/assets/tidal-study.jpg";
@@ -24,19 +22,7 @@ import underwaterDream from "@/assets/underwater-dream.jpg";
 
 type Category = "All Edits" | "TikTok / Reels" | "Landscape" | "Favorites";
 
-type Edit = {
-  id: number;
-  title: string;
-  note: string;
-  image: string;
-  size: string;
-  date: string;
-  duration: string;
-  format: "9:16" | "16:9";
-  favorite: boolean;
-};
-
-const edits: Edit[] = [
+const edits: ArchiveEdit[] = [
   { id: 1, title: "Submerged in You", note: "Final color grade", image: underwaterDream, size: "84.2 MB", date: "SEP 28, 2026", duration: "00:24", format: "16:9", favorite: true },
   { id: 2, title: "Neon Afterglow", note: "Reel master", image: neonAfterglow, size: "12.4 MB", date: "SEP 22, 2026", duration: "00:15", format: "9:16", favorite: true },
   { id: 3, title: "Where We Left It", note: "Director’s cut", image: coastalMemory, size: "146.8 MB", date: "SEP 16, 2026", duration: "01:08", format: "16:9", favorite: false },
@@ -63,9 +49,9 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const reduceMotion = useReducedMotion();
-  const uploadRef = useRef<HTMLInputElement>(null);
   const [activeFilter, setActiveFilter] = useState<Category>("All Edits");
-  const [selected, setSelected] = useState<Edit | null>(null);
+  const [selected, setSelected] = useState<ArchiveEdit | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [developerVault, setDeveloperVault] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -76,10 +62,10 @@ function Index() {
     return true;
   }), [activeFilter]);
 
-  const flashNotice = (text: string) => {
+  const flashNotice = useCallback((text: string) => {
     setNotice(text);
     window.setTimeout(() => setNotice(null), 2600);
-  };
+  }, []);
 
   return (
     <main className="min-h-screen overflow-hidden bg-background text-foreground">
@@ -93,8 +79,7 @@ function Index() {
             HERNAME.ARCHIVE
           </a>
           <div className="flex items-center gap-2">
-            <input ref={uploadRef} className="hidden" type="file" accept="video/*" onChange={(event) => event.target.files?.[0] && flashNotice(`${event.target.files[0].name} is ready to enter the vault`)} />
-            <Button variant="outline" onClick={() => uploadRef.current?.click()} className="h-10 border-primary/40 bg-primary/5 px-3 text-[11px] uppercase tracking-[0.16em] text-primary hover:border-primary hover:bg-primary/10 hover:text-primary sm:px-5">
+            <Button variant="outline" onClick={() => setUploadOpen(true)} className="h-10 border-primary/40 bg-primary/5 px-3 text-[11px] uppercase tracking-[0.16em] text-primary hover:border-primary hover:bg-primary/10 hover:text-primary sm:px-5">
               <Upload className="size-3.5" /> <span className="hidden sm:inline">Upload new edit</span><span className="sm:hidden">Upload</span>
             </Button>
             <Button aria-label="Private vault locked" title="Private vault locked" variant="ghost" size="icon" className="text-muted-foreground hover:bg-primary/10 hover:text-primary">
@@ -192,7 +177,6 @@ function Index() {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-6">
           <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">Private collection · Forever yours</p>
           <div className="relative">
-            <AnimatePresence>{developerVault && <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }} className="absolute bottom-10 right-0 w-52 border border-primary/30 bg-card/95 p-4 text-right backdrop-blur-xl"><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-primary">Developer vault unlocked</p><p className="mt-2 text-xs text-muted-foreground">Tiny experiments live here.</p></motion.div>}</AnimatePresence>
             <Button title="A small secret" aria-label="Open developer vault" variant="ghost" size="icon" onClick={() => setDeveloperVault((value) => !value)} className="group relative opacity-30 hover:bg-transparent hover:text-primary hover:opacity-100">
               {developerVault && <span className="absolute inset-0 animate-ping rounded-full border border-primary" />}<Cat className="size-4" />
             </Button>
@@ -200,17 +184,9 @@ function Index() {
         </div>
       </footer>
 
-      <AnimatePresence>
-        {selected && (
-          <motion.div role="dialog" aria-modal="true" aria-label={`${selected.title} fullscreen preview`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 p-4 backdrop-blur-xl" onClick={() => setSelected(null)}>
-            <Button aria-label="Close preview" variant="outline" size="icon" onClick={() => setSelected(null)} className="absolute right-5 top-5 z-10 border-border bg-card/80 text-foreground"><X /></Button>
-            <motion.div initial={{ scale: 0.96 }} animate={{ scale: 1 }} exit={{ scale: 0.96 }} onClick={(event) => event.stopPropagation()} className="w-full max-w-5xl overflow-hidden border border-border bg-card">
-              <div className="relative aspect-video"><img src={selected.image} alt="" className="h-full w-full object-cover" /><div className="absolute inset-0 flex items-center justify-center bg-background/15"><div className="flex size-16 items-center justify-center rounded-full border border-primary bg-background/40 text-primary backdrop-blur-md"><Play className="ml-1 fill-current" /></div></div></div>
-              <div className="flex flex-col justify-between gap-4 p-5 sm:flex-row sm:items-center"><div><h2 className="font-display text-2xl">{selected.title}</h2><p className="mt-1 text-xs text-muted-foreground">{selected.note} · {selected.duration}</p></div><Button onClick={() => flashNotice(`${selected.title} download queued`)} className="bg-primary text-primary-foreground"><Download /> Download MP4</Button></div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <UploadDrawer open={uploadOpen} onClose={() => setUploadOpen(false)} onComplete={flashNotice} />
+      <AnimatePresence>{developerVault && <DeveloperDashboard embedded onClose={() => setDeveloperVault(false)} />}</AnimatePresence>
+      <CinematicPlayer edit={selected} onClose={() => setSelected(null)} onSave={(title) => flashNotice(`${title} is ready for your Camera Roll`)} />
 
       <AnimatePresence>{notice && <motion.div role="status" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="fixed bottom-5 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-2 border border-primary/30 bg-card/95 px-4 py-3 text-xs text-foreground shadow-[0_0_30px_var(--primary-glow)] backdrop-blur-xl"><Check className="size-4 text-primary" />{notice}</motion.div>}</AnimatePresence>
     </main>

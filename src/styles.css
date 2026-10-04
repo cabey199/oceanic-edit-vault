@@ -166,9 +166,37 @@
   &::-webkit-scrollbar { display: none; }
 }
 
+@utility ocean-border {
+  position: relative;
+  border: 1px solid color-mix(in oklab, var(--primary) 34%, transparent);
+  overflow: hidden;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--primary) 75%, transparent), transparent);
+    transform: translateX(-100%);
+    animation: tide-border 3s linear infinite;
+  }
+}
+
+@utility video-range {
+  appearance: none;
+  height: 3px;
+  cursor: pointer;
+  background: color-mix(in oklab, var(--muted-foreground) 30%, transparent);
+  accent-color: var(--primary);
+  &::-webkit-slider-thumb { appearance: none; width: 12px; height: 12px; border-radius: 999px; background: var(--primary); box-shadow: 0 0 16px var(--primary); }
+}
+
 @keyframes ocean-breathe {
   from { opacity: .45; transform: scale(1); }
   to { opacity: .8; transform: scale(1.04); }
+}
+
+@keyframes tide-border {
+  to { transform: translateX(100%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
