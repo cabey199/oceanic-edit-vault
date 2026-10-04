@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- UI architecture: Keep the archive as a client-side showcase with local placeholder media and interactions; persistence requires a later Cloud integration.
