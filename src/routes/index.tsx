@@ -112,7 +112,7 @@ function Index() {
           height={900}
           className="absolute inset-0 h-full w-full object-cover opacity-60"
           initial={reduceMotion ? false : { scale: 1.08 }}
-          animate={reduceMotion ? undefined : { scale: 1 }}
+          animate={reduceMotion ? false : { scale: 1 }}
           transition={{ duration: 3.5, ease: "easeOut" }}
         />
         <div className="absolute inset-0 bg-[linear-gradient(to_bottom,var(--hero-overlay-soft),var(--hero-overlay)_72%,var(--background))]" />
