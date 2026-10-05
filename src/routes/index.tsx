@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
 import {
   ArrowDown,
   Cat,
@@ -61,7 +61,14 @@ function Index() {
   const [notice, setNotice] = useState<string | null>(null);
   const [theme, setTheme] = useState<OceanTheme>("calm");
   const { scrollY } = useScroll();
-  const oceanDrift = useTransform(scrollY, [0, 900], [0, 72]);
+  const springScroll = useSpring(scrollY, { stiffness: 72, damping: 22, mass: 0.8 });
+  const tideScroll = reduceMotion ? scrollY : springScroll;
+  const oceanDrift = useTransform(tideScroll, [0, 900], [0, theme === "night" ? 28 : 18]);
+  const headerDrift = useTransform(tideScroll, [0, 2400], [0, theme === "night" ? -10 : -6]);
+  const heroDrift = useTransform(tideScroll, [0, 900], [0, -48]);
+  const archiveDrift = useTransform(tideScroll, [500, 2600], [0, theme === "night" ? -32 : -20]);
+  const cardDrift = useTransform(tideScroll, [600, 2800], [0, theme === "night" ? -14 : -9]);
+  const footerDrift = useTransform(tideScroll, [1800, 3600], [0, -16]);
 
   useEffect(() => {
     if (reduceMotion) return;
@@ -146,9 +153,9 @@ function Index() {
   return (
     <main data-ocean-theme={theme} className="ocean-archive relative isolate min-h-screen overflow-hidden bg-background text-foreground">
       <motion.div className="pointer-events-none fixed inset-[-15vh] -z-10" style={{ y: oceanDrift }}>
-        <OceanCanvas theme={theme} scrollY={scrollY} />
+        <OceanCanvas theme={theme} scrollY={tideScroll} />
       </motion.div>
-      <header className="fixed inset-x-0 top-0 z-40 px-4 pt-4 sm:px-8 sm:pt-6">
+      <motion.header style={{ y: headerDrift }} className="fixed inset-x-0 top-0 z-40 px-4 pt-4 sm:px-8 sm:pt-6">
         <nav className="glass-panel mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <a href="#top" className="flex items-center gap-3 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground sm:text-xs">
             <span className="relative flex size-2">
@@ -169,9 +176,9 @@ function Index() {
             </Button>
           </div>
         </nav>
-      </header>
+      </motion.header>
 
-      <section id="top" className="relative flex min-h-[96svh] items-center justify-center overflow-hidden px-5 pb-16 pt-28">
+      <motion.section id="top" style={{ y: heroDrift }} className="relative flex min-h-[96svh] items-center justify-center overflow-hidden px-5 pb-16 pt-28">
         <div className="absolute inset-0">
           <div className="hero-readable-overlay absolute inset-0" />
           <div className="ocean-light absolute inset-0" />
@@ -195,8 +202,9 @@ function Index() {
           </motion.div>
         </motion.div>
         <div className="absolute bottom-8 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-3 font-mono text-[8px] uppercase tracking-[0.24em] text-muted-foreground"><span>Scroll to descend</span><span className="h-10 w-px bg-gradient-to-b from-primary/50 to-transparent" /></div>
-      </section>
+      </motion.section>
 
+      <motion.div style={{ y: archiveDrift }}>
       <motion.section id="vault" initial={reduceMotion ? false : { opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.08 }} transition={{ duration: 0.8 }} className="relative px-5 py-20 sm:px-8 sm:py-28">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col justify-between gap-8 border-b border-border pb-8 sm:flex-row sm:items-end">
@@ -218,7 +226,8 @@ function Index() {
           <motion.div layout className="grid gap-x-6 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
             <AnimatePresence mode="popLayout">
               {visibleEdits.map((edit, index) => (
-                <motion.article layout key={edit.id} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.8, delay: index * 0.055 }} {...(reduceMotion ? {} : { whileHover: { y: -4 } })} className="glass-card group overflow-hidden">
+                <motion.div layout key={edit.id} style={{ y: cardDrift }}>
+                <motion.article layout initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.8, delay: index * 0.055 }} {...(reduceMotion ? {} : { whileHover: { y: -4 } })} className="glass-card group overflow-hidden">
                   <div className={`relative overflow-hidden bg-secondary ${edit.format === "9:16" ? "aspect-[4/5]" : "aspect-[16/10]"}`}>
                     <img src={edit.image} alt={`${edit.title} video thumbnail`} loading="lazy" width={1440} height={900} className="h-full w-full object-cover opacity-70 transition-all duration-[900ms] ease-out group-hover:scale-[1.03] group-hover:opacity-100" />
                     <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--card),transparent_55%)] opacity-70" />
@@ -247,13 +256,15 @@ function Index() {
                     </div>
                   </div>
                 </motion.article>
+                </motion.div>
               ))}
             </AnimatePresence>
           </motion.div>
         </div>
       </motion.section>
+      </motion.div>
 
-      <footer className="border-t border-border px-5 py-10 sm:px-8">
+      <motion.footer style={{ y: footerDrift }} className="border-t border-border px-5 py-10 sm:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-6">
           <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">Private collection · Forever yours</p>
           <div className="relative">
@@ -262,7 +273,7 @@ function Index() {
             </Button>
           </div>
         </div>
-      </footer>
+      </motion.footer>
 
       <UploadDrawer open={uploadOpen} onClose={() => setUploadOpen(false)} onComplete={flashNotice} />
       <AnimatePresence>{developerVault && <DeveloperDashboard embedded onClose={() => setDeveloperVault(false)} />}</AnimatePresence>
