@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { AnimatePresence, motion, useAnimationFrame, useMotionValue, useReducedMotion, useScroll } from "framer-motion";
 import {
   ArrowDown,
@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CinematicPlayer, DeveloperDashboard, UploadDrawer, type ArchiveEdit } from "@/components/archive-experiences";
 import { OceanCanvas } from "@/components/ocean-canvas";
+import { supabase } from "@/lib/supabase";
 import coastalMemory from "@/assets/coastal-memory.jpg";
 import neonAfterglow from "@/assets/neon-afterglow.jpg";
 import tidalStudy from "@/assets/tidal-study.jpg";
@@ -39,6 +40,14 @@ const edits: ArchiveEdit[] = [
 const filters: Category[] = ["All Edits", "TikTok / Reels", "Landscape", "Favorites"];
 
 export const Route = createFileRoute("/")({
+  beforeLoad: async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw redirect({
+        to: "/login",
+      });
+    }
+  },
   head: () => ({
     meta: [
       { title: "chico’s POV — Oceanic Edits Archive" },
@@ -62,6 +71,7 @@ function Index() {
   const [theme, setTheme] = useState<OceanTheme>("calm");
   const { scrollY } = useScroll();
   const surfaceTide = useMotionValue(0);
+
   useAnimationFrame((time) => {
     if (reduceMotion) {
       surfaceTide.set(0);
@@ -212,63 +222,63 @@ function Index() {
       </motion.section>
 
       <motion.div style={{ y: surfaceTide }}>
-      <motion.section id="vault" initial={reduceMotion ? false : { opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.08 }} transition={{ duration: 0.8 }} className="relative px-5 py-20 sm:px-8 sm:py-28">
-        <div className="mx-auto max-w-7xl">
-          <div className="flex flex-col justify-between gap-8 border-b border-border pb-8 sm:flex-row sm:items-end">
-            <div>
-              <p className="mb-3 font-mono text-[9px] uppercase tracking-[0.3em] text-primary">Volume 01 · Archive / 2026</p>
-              <h2 className="font-display text-4xl italic font-light sm:text-5xl">Deep Water Studies</h2>
+        <motion.section id="vault" initial={reduceMotion ? false : { opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.08 }} transition={{ duration: 0.8 }} className="relative px-5 py-20 sm:px-8 sm:py-28">
+          <div className="mx-auto max-w-7xl">
+            <div className="flex flex-col justify-between gap-8 border-b border-border pb-8 sm:flex-row sm:items-end">
+              <div>
+                <p className="mb-3 font-mono text-[9px] uppercase tracking-[0.3em] text-primary">Volume 01 · Archive / 2026</p>
+                <h2 className="font-display text-4xl italic font-light sm:text-5xl">Deep Water Studies</h2>
+              </div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">06 edits · 434.7 MB</p>
             </div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">06 edits · 434.7 MB</p>
-          </div>
 
-          <div className="no-scrollbar my-8 flex gap-2 overflow-x-auto pb-2" role="tablist" aria-label="Filter edits">
-            {filters.map((filter) => (
-              <Button key={filter} role="tab" aria-selected={activeFilter === filter} variant="ghost" onClick={() => setActiveFilter(filter)} className={`shrink-0 rounded-full border px-4 font-mono text-[10px] uppercase tracking-[0.12em] ${activeFilter === filter ? "border-primary bg-primary/10 text-primary" : "border-border bg-card/30 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"}`}>
-                {filter}
-              </Button>
-            ))}
-          </div>
-
-          <motion.div layout className="grid gap-x-6 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
-            <AnimatePresence mode="popLayout">
-              {visibleEdits.map((edit, index) => (
-                <motion.div layout key={edit.id}>
-                <motion.article layout initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.8, delay: index * 0.055 }} {...(reduceMotion ? {} : { whileHover: { y: -4 } })} className="glass-card group overflow-hidden">
-                  <div className={`relative overflow-hidden bg-secondary ${edit.format === "9:16" ? "aspect-[4/5]" : "aspect-[16/10]"}`}>
-                    <img src={edit.image} alt={`${edit.title} video thumbnail`} loading="lazy" width={1440} height={900} className="h-full w-full object-cover opacity-70 transition-all duration-[900ms] ease-out group-hover:scale-[1.03] group-hover:opacity-100" />
-                    <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--card),transparent_55%)] opacity-70" />
-                    <div className="absolute left-4 top-4 border border-border bg-background/55 px-2.5 py-1 font-mono text-[9px] tracking-[0.15em] text-foreground backdrop-blur-md">{edit.format}</div>
-                    <div className="absolute right-4 top-4 flex gap-2">
-                      {edit.favorite && <Heart className="size-4 fill-primary text-primary" aria-label="Favorite" />}
-                      <span className="font-mono text-[10px] text-foreground">{edit.duration}</span>
-                    </div>
-                    <span className="play-pulse absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-                    <Button aria-label={`Play ${edit.title}`} onClick={() => setSelected(edit)} size="icon" className="absolute left-1/2 top-1/2 size-12 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/70 bg-background/55 text-primary opacity-100 shadow-[0_0_30px_var(--primary-glow)] backdrop-blur-xl transition-all duration-500 hover:scale-110 hover:bg-primary hover:text-primary-foreground sm:opacity-0 sm:group-hover:opacity-100">
-                      <Play className="ml-0.5 size-4 fill-current" />
-                    </Button>
-                  </div>
-                  <div className="p-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div><h3 className="font-display text-2xl">{edit.title}</h3><p className="mt-1 text-xs text-muted-foreground">{edit.note}</p></div>
-                      <span className="shrink-0 border border-border px-2 py-1 font-mono text-[9px] text-muted-foreground">{edit.size}</span>
-                    </div>
-                    <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
-                      <span className="font-mono text-[9px] tracking-[0.13em] text-muted-foreground">{edit.date}</span>
-                      <div className="flex gap-1">
-                        <Button title="Watch fullscreen" aria-label={`Watch ${edit.title} fullscreen`} variant="ghost" size="icon" onClick={() => setSelected(edit)} className="text-muted-foreground hover:bg-primary/10 hover:text-primary"><Expand /></Button>
-                        <Button title="Download MP4" aria-label={`Download ${edit.title}`} variant="ghost" size="icon" onClick={() => flashNotice(`${edit.title} download queued`)} className="text-muted-foreground hover:bg-primary/10 hover:text-primary"><Download /></Button>
-                        <Button title="Share edit" aria-label={`Share ${edit.title}`} variant="ghost" size="icon" onClick={() => void shareEdit(edit)} className="text-muted-foreground hover:bg-primary/10 hover:text-primary"><Share2 /></Button>
-                      </div>
-                    </div>
-                  </div>
-                </motion.article>
-                </motion.div>
+            <div className="no-scrollbar my-8 flex gap-2 overflow-x-auto pb-2" role="tablist" aria-label="Filter edits">
+              {filters.map((filter) => (
+                <Button key={filter} role="tab" aria-selected={activeFilter === filter} variant="ghost" onClick={() => setActiveFilter(filter)} className={`shrink-0 rounded-full border px-4 font-mono text-[10px] uppercase tracking-[0.12em] ${activeFilter === filter ? "border-primary bg-primary/10 text-primary" : "border-border bg-card/30 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"}`}>
+                  {filter}
+                </Button>
               ))}
-            </AnimatePresence>
-          </motion.div>
-        </div>
-      </motion.section>
+            </div>
+
+            <motion.div layout className="grid gap-x-6 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
+              <AnimatePresence mode="popLayout">
+                {visibleEdits.map((edit, index) => (
+                  <motion.div layout key={edit.id}>
+                    <motion.article layout initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.8, delay: index * 0.055 }} {...(reduceMotion ? {} : { whileHover: { y: -4 } })} className="glass-card group overflow-hidden">
+                      <div className={`relative overflow-hidden bg-secondary ${edit.format === "9:16" ? "aspect-[4/5]" : "aspect-[16/10]"}`}>
+                        <img src={edit.image} alt={`${edit.title} video thumbnail`} loading="lazy" width={1440} height={900} className="h-full w-full object-cover opacity-70 transition-all duration-[900ms] ease-out group-hover:scale-[1.03] group-hover:opacity-100" />
+                        <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--card),transparent_55%)] opacity-70" />
+                        <div className="absolute left-4 top-4 border border-border bg-background/55 px-2.5 py-1 font-mono text-[9px] tracking-[0.15em] text-foreground backdrop-blur-md">{edit.format}</div>
+                        <div className="absolute right-4 top-4 flex gap-2">
+                          {edit.favorite && <Heart className="size-4 fill-primary text-primary" aria-label="Favorite" />}
+                          <span className="font-mono text-[10px] text-foreground">{edit.duration}</span>
+                        </div>
+                        <span className="play-pulse absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+                        <Button aria-label={`Play ${edit.title}`} onClick={() => setSelected(edit)} size="icon" className="absolute left-1/2 top-1/2 size-12 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/70 bg-background/55 text-primary opacity-100 shadow-[0_0_30px_var(--primary-glow)] backdrop-blur-xl transition-all duration-500 hover:scale-110 hover:bg-primary hover:text-primary-foreground sm:opacity-0 sm:group-hover:opacity-100">
+                          <Play className="ml-0.5 size-4 fill-current" />
+                        </Button>
+                      </div>
+                      <div className="p-5">
+                        <div className="flex items-start justify-between gap-4">
+                          <div><h3 className="font-display text-2xl">{edit.title}</h3><p className="mt-1 text-xs text-muted-foreground">{edit.note}</p></div>
+                          <span className="shrink-0 border border-border px-2 py-1 font-mono text-[9px] text-muted-foreground">{edit.size}</span>
+                        </div>
+                        <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
+                          <span className="font-mono text-[9px] tracking-[0.13em] text-muted-foreground">{edit.date}</span>
+                          <div className="flex gap-1">
+                            <Button title="Watch fullscreen" aria-label={`Watch ${edit.title} fullscreen`} variant="ghost" size="icon" onClick={() => setSelected(edit)} className="text-muted-foreground hover:bg-primary/10 hover:text-primary"><Expand /></Button>
+                            <Button title="Download MP4" aria-label={`Download ${edit.title}`} variant="ghost" size="icon" onClick={() => flashNotice(`${edit.title} download queued`)} className="text-muted-foreground hover:bg-primary/10 hover:text-primary"><Download /></Button>
+                            <Button title="Share edit" aria-label={`Share ${edit.title}`} variant="ghost" size="icon" onClick={() => void shareEdit(edit)} className="text-muted-foreground hover:bg-primary/10 hover:text-primary"><Share2 /></Button>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.article>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          </div>
+        </motion.section>
       </motion.div>
 
       <motion.footer style={{ y: surfaceTide }} className="border-t border-border px-5 py-10 sm:px-8">
