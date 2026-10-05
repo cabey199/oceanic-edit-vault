@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - UI architecture: Keep the archive as a client-side showcase with local placeholder media and interactions; persistence requires a later Cloud integration.
+- Hero motion: Render the ambient ocean locally with a lightweight canvas layer and local poster texture so the experience has no external media dependency.

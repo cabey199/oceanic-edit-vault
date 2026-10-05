@@ -77,7 +77,7 @@ export function UploadDrawer({ open, onClose, onComplete }: UploadDrawerProps) {
     <AnimatePresence>
       {open && (
         <motion.div className="fixed inset-0 z-50 bg-background/75 backdrop-blur-lg" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
-          <motion.aside role="dialog" aria-modal="true" aria-label="Upload new edit" initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 260 }} onClick={(event) => event.stopPropagation()} className="absolute inset-y-0 right-0 flex w-full max-w-xl flex-col border-l border-border bg-card/90 p-6 shadow-2xl backdrop-blur-2xl sm:p-10">
+          <motion.aside role="dialog" aria-modal="true" aria-label="Upload new edit" initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 260 }} onClick={(event) => event.stopPropagation()} className="glass-panel absolute inset-y-0 right-0 flex w-full max-w-xl flex-col p-6 sm:p-10">
             <div className="flex items-start justify-between gap-6">
               <div><p className="font-mono text-[10px] uppercase tracking-[0.25em] text-primary">New transmission</p><h2 className="mt-3 font-display text-4xl">Upload an edit</h2><p className="mt-2 text-sm text-muted-foreground">Your footage is prepared locally before entering the vault.</p></div>
               <Button variant="ghost" size="icon" aria-label="Close upload drawer" onClick={onClose}><X /></Button>
@@ -93,7 +93,7 @@ export function UploadDrawer({ open, onClose, onComplete }: UploadDrawerProps) {
 
             <AnimatePresence mode="wait">
               {fileName ? (
-                <motion.div key="progress" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6 border border-border bg-background/35 p-5">
+                <motion.div key="progress" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-panel mt-6 p-5">
                   <div className="flex items-center gap-4"><div className="flex size-10 items-center justify-center bg-primary/10 text-primary"><Video className="size-5" /></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{fileName}</p><p className="mt-1 font-mono text-[9px] uppercase tracking-[0.14em] text-primary">{progress < 100 ? "Compressing video... 32 MB → 8.4 MB" : "Compression complete · 74% saved"}</p></div>{progress === 100 && <Check className="size-5 text-primary" />}</div>
                   <div className="mt-5 h-1 overflow-hidden bg-muted"><motion.div className="h-full bg-primary shadow-[0_0_16px_var(--primary)]" animate={{ width: `${progress}%` }} /></div>
                   <div className="mt-2 flex justify-between font-mono text-[9px] text-muted-foreground"><span>{progress < 100 ? "Optimizing for instant playback" : "Ready for the archive"}</span><span>{progress}%</span></div>
@@ -121,11 +121,11 @@ export function DeveloperDashboard({ embedded = false, onClose }: { embedded?: b
         <Metric icon={Video} label="Total edits stored" value="142" detail="18 added this month" />
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <section className="border border-border bg-card/60 p-6 backdrop-blur-xl">
+        <section className="glass-card p-6">
           <div className="flex items-start justify-between gap-6"><div className="flex gap-4"><div className="flex size-10 items-center justify-center bg-primary/10 text-primary"><Zap className="size-5" /></div><div><h2 className="text-sm font-semibold">Auto-Compress Videos Client-Side</h2><p className="mt-2 max-w-md text-xs leading-5 text-muted-foreground">Reduce file size before upload while keeping social-ready visual quality.</p></div></div><Button role="switch" aria-checked={compress} aria-label="Toggle automatic video compression" onClick={() => setCompress((value) => !value)} variant="ghost" className={`h-7 w-12 rounded-full border p-1 ${compress ? "border-primary bg-primary/20" : "border-border bg-muted"}`}><motion.span layout className={`block size-4 rounded-full ${compress ? "ml-5 bg-primary shadow-[0_0_12px_var(--primary)]" : "mr-5 bg-muted-foreground"}`} /></Button></div>
           <div className="mt-8 grid grid-cols-3 gap-3 border-t border-border pt-6"><SmallStat label="Average saving" value="73%" /><SmallStat label="Quality target" value="4K" /><SmallStat label="Codec" value="H.265" /></div>
         </section>
-        <section className="border border-border bg-card/60 p-6 backdrop-blur-xl">
+        <section className="glass-card p-6">
           <div className="flex items-center justify-between"><div className="flex items-center gap-3"><Server className="size-5 text-primary" /><h2 className="text-sm font-semibold">R2 Primary Bucket</h2></div><span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" /><span className="relative inline-flex size-2 rounded-full bg-primary" /></span></div>
           <div className="mt-8 flex items-end justify-between"><div><p className="font-display text-3xl text-primary">Operational</p><p className="mt-2 font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">All systems nominal</p></div><Gauge className="size-9 text-muted-foreground" /></div>
         </section>
@@ -137,7 +137,7 @@ export function DeveloperDashboard({ embedded = false, onClose }: { embedded?: b
 }
 
 function Metric({ icon: Icon, label, value, detail }: { icon: typeof HardDrive; label: string; value: string; detail: string }) {
-  return <section className="border border-border bg-card/60 p-6 backdrop-blur-xl"><div className="flex items-center justify-between"><span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">{label}</span><Icon className="size-4 text-primary" /></div><p className="mt-8 font-display text-3xl text-foreground">{value}</p><p className="mt-2 text-xs text-muted-foreground">{detail}</p></section>;
+  return <section className="glass-card p-6"><div className="flex items-center justify-between"><span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">{label}</span><Icon className="size-4 text-primary" /></div><p className="mt-8 font-display text-3xl text-foreground">{value}</p><p className="mt-2 text-xs text-muted-foreground">{detail}</p></section>;
 }
 
 function SmallStat({ label, value }: { label: string; value: string }) {
