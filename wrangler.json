@@ -2,7 +2,7 @@
   // ...
   "vars": {
     "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1...",
-    "VITE_SUPABASE_URL": "[https://uooxubwuvkigfieqbksv.supabase.co](https://uooxubwuvkigfieqbksv.supabase.co)"
+    "VITE_SUPABASE_URL": "[https://uooxubwuvkifgieqbksv.supabase.co](https://uooxubwuvkifgieqbksv.supabase.co)"
   },
   // ...
 }

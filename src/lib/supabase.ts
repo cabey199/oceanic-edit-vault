@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Fallback directly to your Supabase instance credentials
 const supabaseUrl =
-  import.meta.env.VITE_SUPABASE_URL || 'https://uooxubwuvkigfieqbksv.supabase.co';
+  import.meta.env.VITE_SUPABASE_URL || 'https://uooxubwuvkifgieqbksv.supabase.co';
 
 const supabaseAnonKey =
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
