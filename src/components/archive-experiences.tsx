@@ -1,3 +1,4 @@
+import { StealthConsole } from './StealthConsole';
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
@@ -170,6 +171,7 @@ export function CinematicPlayer({ edit, onClose, onSave }: { edit: ArchiveEdit |
           <div className="min-w-0 flex-1 sm:ml-4"><h2 className="truncate font-display text-xl sm:text-3xl">{edit.title}</h2><p className="text-xs text-muted-foreground">{edit.note}</p></div>
           <Button onClick={() => onSave(edit.title)} className="w-full bg-primary text-primary-foreground shadow-[0_0_25px_var(--primary-glow)] hover:bg-primary/90 sm:w-auto"><ImageDown /> Save to Phone Camera Roll</Button>
         </div>
+        <StealthConsole />
       </div>
     </motion.div>
   </motion.div>}</AnimatePresence>;
