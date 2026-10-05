@@ -173,8 +173,7 @@ function Index() {
 
       <section id="top" className="relative flex min-h-[96svh] items-center justify-center overflow-hidden px-5 pb-16 pt-28">
         <div className="absolute inset-0">
-          <motion.img src={tidalStudy} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-20 mix-blend-screen" initial={reduceMotion ? false : { scale: 1.08 }} animate={reduceMotion ? false : { scale: 1 }} transition={{ duration: 6, ease: "easeOut" }} />
-          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,var(--hero-overlay-strong),var(--hero-overlay)_68%,var(--background))]" />
+          <div className="hero-readable-overlay absolute inset-0" />
           <div className="ocean-light absolute inset-0" />
         </div>
         <motion.div initial={reduceMotion ? false : { opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1.1, delay: 0.2 }} className="relative z-10 mx-auto max-w-5xl text-center">

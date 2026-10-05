@@ -171,6 +171,15 @@
     text-shadow: 0 0 16px color-mix(in oklab, var(--primary) 44%, transparent);
   }
 
+  .hero-readable-overlay {
+    background: linear-gradient(
+      to bottom,
+      var(--hero-overlay-strong),
+      var(--hero-overlay) 68%,
+      color-mix(in oklab, var(--background) 52%, transparent)
+    );
+  }
+
   .ocean-archive #vault article:nth-child(3n + 2) { translate: 0 5px; }
   .ocean-archive #vault article:nth-child(3n) { translate: 0 -3px; }
 
@@ -215,10 +224,8 @@
 }
 
 @utility ocean-light {
-  background:
-    radial-gradient(ellipse at 50% 0%, color-mix(in oklab, var(--primary) 20%, transparent), transparent 52%),
-    repeating-conic-gradient(from 185deg at 55% 18%, transparent 0deg 8deg, color-mix(in oklab, var(--primary) 4%, transparent) 9deg 10deg, transparent 11deg 20deg);
-  animation: ocean-breathe 8s ease-in-out infinite alternate, caustic-drift 24s ease-in-out infinite alternate;
+  background: radial-gradient(ellipse at 50% 0%, color-mix(in oklab, var(--primary) 14%, transparent), transparent 52%);
+  animation: ocean-breathe 12s ease-in-out infinite alternate;
 }
 
 @utility glass-panel {
@@ -293,11 +300,6 @@
 
 @keyframes tide-border {
   to { transform: translateX(100%); }
-}
-
-@keyframes caustic-drift {
-  from { background-position: 0 0, 0 0; }
-  to { background-position: 0 0, 32px 18px; }
 }
 
 @keyframes upload-glow {
