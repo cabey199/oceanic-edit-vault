@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-export function OceanCanvas() {
+export function OceanCanvas({ theme }: { theme: "calm" | "night" }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -28,9 +28,15 @@ export function OceanCanvas() {
     const draw = (time = 0) => {
       context.clearRect(0, 0, width, height);
       const background = context.createLinearGradient(0, 0, 0, height);
-      background.addColorStop(0, "#071528");
-      background.addColorStop(0.48, "#06101f");
-      background.addColorStop(1, "#060a17");
+      if (theme === "calm") {
+        background.addColorStop(0, "rgba(6, 182, 212, 0.22)");
+        background.addColorStop(0.48, "rgba(15, 23, 42, 0.24)");
+        background.addColorStop(1, "rgba(15, 23, 42, 0.42)");
+      } else {
+        background.addColorStop(0, "rgba(30, 41, 59, 0.34)");
+        background.addColorStop(0.48, "rgba(3, 7, 18, 0.55)");
+        background.addColorStop(1, "rgba(3, 7, 18, 0.72)");
+      }
       context.fillStyle = background;
       context.fillRect(0, 0, width, height);
 
@@ -74,7 +80,7 @@ export function OceanCanvas() {
       window.removeEventListener("resize", resize);
       window.cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [theme]);
 
   return <canvas ref={canvasRef} aria-hidden="true" className="absolute inset-0 h-full w-full" />;
 }

@@ -66,7 +66,7 @@
 
 :root {
   --radius: 0.375rem;
-  --background: oklch(0.145 0.035 265);
+  --background: #0f172a;
   --foreground: oklch(0.975 0.004 248);
   --card: oklch(0.205 0.051 264);
   --card-foreground: oklch(0.975 0.004 248);
@@ -79,6 +79,7 @@
   --glass-border: oklch(0.79 0.12 210 / 20%);
   --glass-shadow: 0 8px 32px 0 oklch(0 0 0 / 50%), inset 0 0 15px oklch(0.79 0.12 210 / 5%);
   --glass-shadow-hover: 0 16px 48px 0 oklch(0 0 0 / 62%), inset 0 0 24px oklch(0.79 0.12 210 / 10%), 0 0 26px oklch(0.79 0.12 210 / 16%);
+  --ocean-backdrop: radial-gradient(ellipse at 50% -5%, #06b6d4 0%, #0f172a 58%, #080f1c 100%);
   --secondary: oklch(0.43 0.13 239);
   --secondary-foreground: oklch(0.975 0.004 248);
   --muted: oklch(0.25 0.04 263);
@@ -90,9 +91,9 @@
   --border: oklch(0.79 0.12 210 / 18%);
   --input: oklch(0.79 0.12 210 / 24%);
   --ring: oklch(0.79 0.12 210);
-  --hero-overlay: oklch(0.145 0.035 265 / 92%);
-  --hero-overlay-soft: oklch(0.145 0.035 265 / 25%);
-  --hero-overlay-strong: oklch(0.145 0.035 265 / 80%);
+  --hero-overlay: oklch(0.145 0.035 265 / 44%);
+  --hero-overlay-soft: oklch(0.145 0.035 265 / 18%);
+  --hero-overlay-strong: oklch(0.145 0.035 265 / 52%);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -159,11 +160,65 @@
   html { scroll-behavior: smooth; }
 
   button, a { -webkit-tap-highlight-color: transparent; }
+
+  .ocean-archive {
+    background-color: var(--background);
+    background-image: var(--ocean-backdrop);
+    transition: background-color .7s ease, color .7s ease;
+  }
+
+  .ocean-brand {
+    text-shadow: 0 0 16px color-mix(in oklab, var(--primary) 44%, transparent);
+  }
+
+  .ocean-archive #vault article:nth-child(3n + 2) { translate: 0 5px; }
+  .ocean-archive #vault article:nth-child(3n) { translate: 0 -3px; }
+
+  .ocean-archive[data-ocean-theme="night"] {
+    --background: #030712;
+    --foreground: oklch(0.96 0.01 230);
+    --card: #030712;
+    --card-foreground: oklch(0.96 0.01 230);
+    --popover: #030712;
+    --popover-foreground: oklch(0.96 0.01 230);
+    --primary: oklch(0.79 0.12 210);
+    --primary-foreground: #030712;
+    --primary-glow: oklch(0.79 0.12 210 / 30%);
+    --secondary: #1e293b;
+    --secondary-foreground: oklch(0.96 0.01 230);
+    --muted: #1e293b;
+    --muted-foreground: oklch(0.72 0.035 240);
+    --accent: #1e293b;
+    --accent-foreground: oklch(0.96 0.01 230);
+    --border: oklch(0.79 0.12 210 / 22%);
+    --input: oklch(0.79 0.12 210 / 28%);
+    --ring: oklch(0.79 0.12 210);
+    --glass-surface: oklch(0.13 0.03 263 / 82%);
+    --glass-border: oklch(0.79 0.12 210 / 30%);
+    --glass-shadow: 0 8px 32px 0 oklch(0 0 0 / 58%), inset 0 0 18px oklch(0.79 0.12 210 / 5%);
+    --glass-shadow-hover: 0 16px 48px 0 oklch(0 0 0 / 70%), inset 0 0 26px oklch(0.79 0.12 210 / 11%), 0 0 30px oklch(0.79 0.12 210 / 21%);
+    --hero-overlay: oklch(0.13 0.03 263 / 92%);
+    --hero-overlay-soft: oklch(0.13 0.03 263 / 25%);
+    --hero-overlay-strong: oklch(0.13 0.03 263 / 80%);
+    --ocean-backdrop: radial-gradient(ellipse at 50% -5%, #1e293b 0%, #030712 58%, #02040a 100%);
+  }
+
+  .ocean-archive[data-ocean-theme="calm"] .glass-card {
+    --glass-surface: oklch(0.19 0.05 240 / 56%);
+    --glass-border: oklch(0.79 0.12 210 / 23%);
+  }
+
+  .ocean-archive[data-ocean-theme="night"] .ocean-light {
+    background-image: radial-gradient(ellipse at 50% 0%, color-mix(in oklab, var(--primary) 12%, transparent), transparent 52%);
+    animation: ocean-breathe 11s ease-in-out infinite alternate;
+  }
 }
 
 @utility ocean-light {
-  background: radial-gradient(ellipse at 50% 0%, color-mix(in oklab, var(--primary) 20%, transparent), transparent 52%);
-  animation: ocean-breathe 8s ease-in-out infinite alternate;
+  background:
+    radial-gradient(ellipse at 50% 0%, color-mix(in oklab, var(--primary) 20%, transparent), transparent 52%),
+    repeating-conic-gradient(from 185deg at 55% 18%, transparent 0deg 8deg, color-mix(in oklab, var(--primary) 4%, transparent) 9deg 10deg, transparent 11deg 20deg);
+  animation: ocean-breathe 8s ease-in-out infinite alternate, caustic-drift 24s ease-in-out infinite alternate;
 }
 
 @utility glass-panel {
@@ -180,7 +235,7 @@
   backdrop-filter: blur(20px) saturate(125%);
   transition: transform .4s ease, border-color .4s ease, box-shadow .4s ease;
   &:hover {
-    border-color: var(--primary);
+    border-color: color-mix(in oklab, var(--primary) 62%, transparent);
     box-shadow: var(--glass-shadow-hover);
   }
 }
@@ -209,6 +264,17 @@
     transform: translateX(-100%);
     animation: tide-border 3s linear infinite;
   }
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    box-shadow: 0 0 20px color-mix(in oklab, var(--primary) 18%, transparent);
+    animation: upload-glow 2.8s ease-in-out infinite;
+  }
+  &:hover { box-shadow: 0 0 28px color-mix(in oklab, var(--primary) 24%, transparent); }
+  & > * { position: relative; z-index: 1; }
 }
 
 @utility video-range {
@@ -227,6 +293,16 @@
 
 @keyframes tide-border {
   to { transform: translateX(100%); }
+}
+
+@keyframes caustic-drift {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 0, 32px 18px; }
+}
+
+@keyframes upload-glow {
+  0%, 100% { opacity: .35; }
+  50% { opacity: .9; }
 }
 
 @keyframes play-pulse {
