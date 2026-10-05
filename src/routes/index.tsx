@@ -41,6 +41,11 @@ const filters: Category[] = ["All Edits", "TikTok / Reels", "Landscape", "Favori
 
 export const Route = createFileRoute("/")({
   beforeLoad: async () => {
+    // Allow Supabase to parse access tokens on page mount before redirecting
+    if (typeof window !== "undefined" && window.location.hash.includes("access_token=")) {
+      return;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       throw redirect({
@@ -71,6 +76,19 @@ function Index() {
   const [theme, setTheme] = useState<OceanTheme>("calm");
   const { scrollY } = useScroll();
   const surfaceTide = useMotionValue(0);
+
+  // Handle invite links and magic link hash parameters cleanly
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        if (typeof window !== "undefined" && window.location.hash) {
+          window.history.replaceState(null, "", window.location.pathname);
+        }
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   useAnimationFrame((time) => {
     if (reduceMotion) {
