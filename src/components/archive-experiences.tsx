@@ -94,7 +94,8 @@ export function UploadDrawer({ open, onClose, onComplete }: UploadDrawerProps) {
             <AnimatePresence mode="wait">
               {fileName ? (
                 <motion.div key="progress" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-panel mt-6 p-5">
-                  <div className="flex items-center gap-4"><div className="flex size-10 items-center justify-center bg-primary/10 text-primary"><Video className="size-5" /></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{fileName}</p><p className="mt-1 font-mono text-[9px] uppercase tracking-[0.14em] text-primary">{progress < 100 ? "Compressing video... 32 MB → 8.4 MB" : "Compression complete · 74% saved"}</p></div>{progress === 100 && <Check className="size-5 text-primary" />}</div>
+                  <div className="flex items-center gap-4"><div className="flex size-10 items-center justify-center bg-primary/10 text-primary"><Video className="size-5" /></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{fileName}</p><p className="mt-1 font-mono text-[9px] uppercase tracking-[0.14em] text-primary">{progress < 100 ? "Optimizing: 84 MB → 18 MB (-78%)" : "Compression complete · 78% saved"}</p></div>{progress === 100 && <Check className="size-5 text-primary" />}</div>
+                  <div className="mt-5 grid grid-cols-3 gap-3 border-y border-border py-3 font-mono text-[9px] uppercase tracking-[0.12em]"><div><p className="text-muted-foreground">Source</p><p className="mt-1 text-foreground">84 MB</p></div><div><p className="text-muted-foreground">Optimized</p><p className="mt-1 text-foreground">18 MB</p></div><div><p className="text-muted-foreground">Saved</p><p className="mt-1 text-primary">78%</p></div></div>
                   <div className="mt-5 h-1 overflow-hidden bg-muted"><motion.div className="h-full bg-primary shadow-[0_0_16px_var(--primary)]" animate={{ width: `${progress}%` }} /></div>
                   <div className="mt-2 flex justify-between font-mono text-[9px] text-muted-foreground"><span>{progress < 100 ? "Optimizing for instant playback" : "Ready for the archive"}</span><span>{progress}%</span></div>
                 </motion.div>
@@ -116,7 +117,7 @@ export function DeveloperDashboard({ embedded = false, onClose }: { embedded?: b
         {onClose && <Button variant="outline" size="icon" aria-label="Close developer dashboard" onClick={onClose}><X /></Button>}
       </div>
       <div className="mt-10 grid gap-4 md:grid-cols-3">
-        <Metric icon={HardDrive} label="Total storage used" value="2.1 GB / 10 GB" detail="Free Tier" />
+        <Metric icon={HardDrive} label="Storage capacity" value="12.4 GB / 20 GB" detail="7.6 GB free" progress={62} />
         <Metric icon={Cloud} label="Active bucket" value="Cloudflare R2" detail="Primary region · Auto" />
         <Metric icon={Video} label="Total edits stored" value="142" detail="18 added this month" />
       </div>
@@ -136,8 +137,8 @@ export function DeveloperDashboard({ embedded = false, onClose }: { embedded?: b
   return <motion.div role="dialog" aria-modal="true" aria-label="Developer vault" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 overflow-y-auto bg-background/90 px-5 py-16 backdrop-blur-2xl sm:px-8" onClick={onClose}><motion.div initial={{ scale: .98, y: 16 }} animate={{ scale: 1, y: 0 }} onClick={(event) => event.stopPropagation()}>{content}</motion.div></motion.div>;
 }
 
-function Metric({ icon: Icon, label, value, detail }: { icon: typeof HardDrive; label: string; value: string; detail: string }) {
-  return <section className="glass-card p-6"><div className="flex items-center justify-between"><span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">{label}</span><Icon className="size-4 text-primary" /></div><p className="mt-8 font-display text-3xl text-foreground">{value}</p><p className="mt-2 text-xs text-muted-foreground">{detail}</p></section>;
+function Metric({ icon: Icon, label, value, detail, progress }: { icon: typeof HardDrive; label: string; value: string; detail: string; progress?: number }) {
+  return <section className="glass-card p-6"><div className="flex items-center justify-between"><span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">{label}</span><Icon className="size-4 text-primary" /></div><p className="mt-8 font-display text-2xl text-foreground">{value}</p>{progress !== undefined && <div role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="mt-4 h-1 overflow-hidden bg-muted"><div className="h-full bg-primary shadow-[0_0_14px_var(--primary-glow)]" style={{ width: `${progress}%` }} /></div>}<p className="mt-2 text-xs text-muted-foreground">{detail}</p></section>;
 }
 
 function SmallStat({ label, value }: { label: string; value: string }) {

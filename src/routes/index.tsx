@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useAnimationFrame, useMotionValue, useReducedMotion, useScroll } from "framer-motion";
 import {
   ArrowDown,
   Cat,
@@ -8,10 +8,13 @@ import {
   Expand,
   Heart,
   LockKeyhole,
+  Moon,
   Play,
+  Share2,
+  Sun,
   Upload,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { CinematicPlayer, DeveloperDashboard, UploadDrawer, type ArchiveEdit } from "@/components/archive-experiences";
@@ -22,6 +25,7 @@ import tidalStudy from "@/assets/tidal-study.jpg";
 import underwaterDream from "@/assets/underwater-dream.jpg";
 
 type Category = "All Edits" | "TikTok / Reels" | "Landscape" | "Favorites";
+type OceanTheme = "calm" | "night";
 
 const edits: ArchiveEdit[] = [
   { id: 1, title: "Submerged in You", note: "Final color grade", image: underwaterDream, size: "84.2 MB", date: "SEP 28, 2026", duration: "00:24", format: "16:9", favorite: true },
@@ -37,10 +41,10 @@ const filters: Category[] = ["All Edits", "TikTok / Reels", "Landscape", "Favori
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Oceanic Edits Archive — Private Digital Vault" },
-      { name: "description", content: "A private, beautifully curated archive for raw and finished video edits." },
-      { property: "og:title", content: "Oceanic Edits Archive" },
-      { property: "og:description", content: "A private digital vault for cinematic edits." },
+      { title: "chico’s POV — Oceanic Edits Archive" },
+      { name: "description", content: "A personal ocean of memories, edits, and moments through Chico’s point of view." },
+      { property: "og:title", content: "chico’s POV" },
+      { property: "og:description", content: "A personal ocean of memories, edits, and moments through Chico’s point of view." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -55,31 +59,122 @@ function Index() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [developerVault, setDeveloperVault] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [theme, setTheme] = useState<OceanTheme>("calm");
+  const { scrollY } = useScroll();
+  const surfaceTide = useMotionValue(0);
+  useAnimationFrame((time) => {
+    if (reduceMotion) {
+      surfaceTide.set(0);
+      return;
+    }
+    const scrollSwell = Math.sin(scrollY.get() * 0.0022) * (theme === "night" ? 11 : 7);
+    const surfaceSway = Math.sin(time * (theme === "night" ? 0.0009 : 0.00038)) * (theme === "night" ? 3.5 : 2);
+    surfaceTide.set(scrollSwell + surfaceSway);
+  });
 
-  const visibleEdits = useMemo(() => edits.filter((edit) => {
-    if (activeFilter === "Favorites") return edit.favorite;
-    if (activeFilter === "TikTok / Reels") return edit.format === "9:16";
-    if (activeFilter === "Landscape") return edit.format === "16:9";
-    return true;
-  }), [activeFilter]);
+  useEffect(() => {
+    if (reduceMotion) return;
+
+    const previousScrollBehavior = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = "auto";
+    let targetScroll = window.scrollY;
+    let frame = 0;
+    let previousFrameTime = 0;
+
+    const drift = (time: number) => {
+      const elapsed = previousFrameTime ? Math.min(time - previousFrameTime, 64) : 16;
+      previousFrameTime = time;
+      const currentScroll = window.scrollY;
+      const difference = targetScroll - currentScroll;
+      if (Math.abs(difference) < 0.6) {
+        window.scrollTo(0, targetScroll);
+        frame = 0;
+        previousFrameTime = 0;
+        return;
+      }
+      const damping = 1 - Math.exp(-elapsed / 100);
+      window.scrollTo(0, currentScroll + difference * damping);
+      frame = window.requestAnimationFrame(drift);
+    };
+
+    const handleWheel = (event: WheelEvent) => {
+      const target = event.target;
+      if (
+        event.ctrlKey ||
+        !(target instanceof Element) ||
+        target.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], [data-native-scroll]')
+      ) return;
+
+      const delta =
+        event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1);
+      const maximum = document.documentElement.scrollHeight - window.innerHeight;
+      const nextScroll = Math.max(
+        0,
+        Math.min(maximum, (frame ? targetScroll : window.scrollY) + delta),
+      );
+      if (nextScroll === (frame ? targetScroll : window.scrollY)) return;
+
+      event.preventDefault();
+      targetScroll = nextScroll;
+      if (!frame) frame = window.requestAnimationFrame(drift);
+    };
+
+    window.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      window.removeEventListener("wheel", handleWheel);
+      window.cancelAnimationFrame(frame);
+      document.documentElement.style.scrollBehavior = previousScrollBehavior;
+    };
+  }, [reduceMotion]);
+
+  const visibleEdits = useMemo(
+    () =>
+      edits.filter((edit) => {
+        if (activeFilter === "Favorites") return edit.favorite;
+        if (activeFilter === "TikTok / Reels") return edit.format === "9:16";
+        if (activeFilter === "Landscape") return edit.format === "16:9";
+        return true;
+      }),
+    [activeFilter],
+  );
 
   const flashNotice = useCallback((text: string) => {
     setNotice(text);
     window.setTimeout(() => setNotice(null), 2600);
   }, []);
 
+  const shareEdit = useCallback(async (edit: ArchiveEdit) => {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: edit.title, text: `${edit.title} · chico’s POV`, url: window.location.href });
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        flashNotice(`${edit.title} link copied`);
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") return;
+      flashNotice("Sharing is unavailable on this device");
+    }
+  }, [flashNotice]);
+
   return (
-    <main className="min-h-screen overflow-hidden bg-background text-foreground">
-      <header className="fixed inset-x-0 top-0 z-40 px-4 pt-4 sm:px-8 sm:pt-6">
+    <main data-ocean-theme={theme} className="ocean-archive relative isolate min-h-screen overflow-hidden bg-background text-foreground">
+      <motion.div className="pointer-events-none fixed inset-[-15vh] -z-10" style={{ y: surfaceTide }}>
+        <OceanCanvas theme={theme} scrollY={surfaceTide} />
+      </motion.div>
+      <motion.header style={{ y: surfaceTide }} className="fixed inset-x-0 top-0 z-40 px-4 pt-4 sm:px-8 sm:pt-6">
         <nav className="glass-panel mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <a href="#top" className="flex items-center gap-3 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground sm:text-xs">
             <span className="relative flex size-2">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" />
               <span className="relative inline-flex size-2 rounded-full bg-primary shadow-[0_0_14px_var(--primary)]" />
             </span>
-            HERNAME.ARCHIVE
+            <span className="ocean-brand">chico’s POV</span>
           </a>
           <div className="flex items-center gap-2">
+            <Button aria-label={theme === "calm" ? "Switch to Wavy Night theme" : "Switch to Calm Day theme"} title={theme === "calm" ? "Wavy Night" : "Calm Day"} variant="ghost" size="icon" onClick={() => setTheme((current) => current === "calm" ? "night" : "calm")} className="text-primary hover:bg-primary/10 hover:text-primary">
+              {theme === "calm" ? <Moon className="size-4" /> : <Sun className="size-4" />}
+            </Button>
             <Button variant="outline" onClick={() => setUploadOpen(true)} className="h-10 border-primary/40 bg-primary/5 px-3 text-[11px] uppercase tracking-[0.16em] text-primary hover:border-primary hover:bg-primary/10 hover:text-primary sm:px-5">
               <Upload className="size-3.5" /> <span className="hidden sm:inline">Upload new edit</span><span className="sm:hidden">Upload</span>
             </Button>
@@ -88,34 +183,35 @@ function Index() {
             </Button>
           </div>
         </nav>
-      </header>
+      </motion.header>
 
-      <section id="top" className="relative flex min-h-[96svh] items-center justify-center overflow-hidden px-5 pb-16 pt-28">
-        <OceanCanvas />
-        <motion.img src={tidalStudy} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-20 mix-blend-screen" initial={reduceMotion ? false : { scale: 1.08 }} animate={reduceMotion ? false : { scale: 1 }} transition={{ duration: 6, ease: "easeOut" }} />
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,var(--hero-overlay-strong),var(--hero-overlay)_68%,var(--background))]" />
-        <div className="ocean-light absolute inset-0" />
+      <motion.section id="top" style={{ y: surfaceTide }} className="relative flex min-h-[96svh] items-center justify-center overflow-hidden px-5 pb-16 pt-28">
+        <div className="absolute inset-0">
+          <div className="hero-readable-overlay absolute inset-0" />
+          <div className="ocean-light absolute inset-0" />
+        </div>
         <motion.div initial={reduceMotion ? false : { opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1.1, delay: 0.2 }} className="relative z-10 mx-auto max-w-5xl text-center">
-          <motion.div animate={reduceMotion ? undefined : { y: [0, -6, 0] }} transition={{ duration: 5, ease: "easeInOut", repeat: Infinity }} className="mb-9 inline-flex items-center gap-4 font-mono text-[9px] uppercase tracking-[0.32em] text-primary sm:text-[10px]">
+          <div className="mb-9 inline-flex items-center gap-4 font-mono text-[9px] uppercase tracking-[0.32em] text-primary sm:text-[10px]">
             <span className="h-px w-10 bg-primary/40" />
             [ Private digital vault ]
             <span className="h-px w-10 bg-primary/40" />
-          </motion.div>
+          </div>
           <h1 className="font-display text-6xl font-light leading-[0.9] text-foreground sm:text-8xl lg:text-9xl">
-            Oceanic <em className="font-light text-muted-foreground">Edits</em>
+            chico’s <em className="font-light text-muted-foreground">POV</em>
           </h1>
           <p className="mx-auto mt-7 max-w-xl text-[10px] uppercase leading-6 tracking-[0.22em] text-muted-foreground sm:text-xs">
-            A curated sanctuary for the cinematic eye
+            A personal ocean of memories, edits, and moments
           </p>
-          <motion.div animate={reduceMotion ? undefined : { y: [0, 5, 0] }} transition={{ duration: 4, ease: "easeInOut", repeat: Infinity }}>
+          <div>
             <Button size="lg" onClick={() => document.querySelector("#vault")?.scrollIntoView({ behavior: "smooth" })} className="mt-11 h-12 border border-primary/40 bg-primary/10 px-7 text-[10px] uppercase tracking-[0.2em] text-primary shadow-[0_0_32px_var(--primary-glow)] backdrop-blur-xl hover:bg-primary hover:text-primary-foreground">
               Enter archive <ArrowDown className="size-4" />
             </Button>
-          </motion.div>
+          </div>
         </motion.div>
         <div className="absolute bottom-8 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-3 font-mono text-[8px] uppercase tracking-[0.24em] text-muted-foreground"><span>Scroll to descend</span><span className="h-10 w-px bg-gradient-to-b from-primary/50 to-transparent" /></div>
-      </section>
+      </motion.section>
 
+      <motion.div style={{ y: surfaceTide }}>
       <motion.section id="vault" initial={reduceMotion ? false : { opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.08 }} transition={{ duration: 0.8 }} className="relative px-5 py-20 sm:px-8 sm:py-28">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col justify-between gap-8 border-b border-border pb-8 sm:flex-row sm:items-end">
@@ -137,7 +233,8 @@ function Index() {
           <motion.div layout className="grid gap-x-6 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
             <AnimatePresence mode="popLayout">
               {visibleEdits.map((edit, index) => (
-                <motion.article layout key={edit.id} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.8, delay: index * 0.055 }} whileHover={reduceMotion ? undefined : { y: -6 }} className="glass-card group overflow-hidden">
+                <motion.div layout key={edit.id}>
+                <motion.article layout initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.8, delay: index * 0.055 }} {...(reduceMotion ? {} : { whileHover: { y: -4 } })} className="glass-card group overflow-hidden">
                   <div className={`relative overflow-hidden bg-secondary ${edit.format === "9:16" ? "aspect-[4/5]" : "aspect-[16/10]"}`}>
                     <img src={edit.image} alt={`${edit.title} video thumbnail`} loading="lazy" width={1440} height={900} className="h-full w-full object-cover opacity-70 transition-all duration-[900ms] ease-out group-hover:scale-[1.03] group-hover:opacity-100" />
                     <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--card),transparent_55%)] opacity-70" />
@@ -161,17 +258,20 @@ function Index() {
                       <div className="flex gap-1">
                         <Button title="Watch fullscreen" aria-label={`Watch ${edit.title} fullscreen`} variant="ghost" size="icon" onClick={() => setSelected(edit)} className="text-muted-foreground hover:bg-primary/10 hover:text-primary"><Expand /></Button>
                         <Button title="Download MP4" aria-label={`Download ${edit.title}`} variant="ghost" size="icon" onClick={() => flashNotice(`${edit.title} download queued`)} className="text-muted-foreground hover:bg-primary/10 hover:text-primary"><Download /></Button>
+                        <Button title="Share edit" aria-label={`Share ${edit.title}`} variant="ghost" size="icon" onClick={() => void shareEdit(edit)} className="text-muted-foreground hover:bg-primary/10 hover:text-primary"><Share2 /></Button>
                       </div>
                     </div>
                   </div>
                 </motion.article>
+                </motion.div>
               ))}
             </AnimatePresence>
           </motion.div>
         </div>
       </motion.section>
+      </motion.div>
 
-      <footer className="border-t border-border px-5 py-10 sm:px-8">
+      <motion.footer style={{ y: surfaceTide }} className="border-t border-border px-5 py-10 sm:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-6">
           <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">Private collection · Forever yours</p>
           <div className="relative">
@@ -180,7 +280,7 @@ function Index() {
             </Button>
           </div>
         </div>
-      </footer>
+      </motion.footer>
 
       <UploadDrawer open={uploadOpen} onClose={() => setUploadOpen(false)} onComplete={flashNotice} />
       <AnimatePresence>{developerVault && <DeveloperDashboard embedded onClose={() => setDeveloperVault(false)} />}</AnimatePresence>
