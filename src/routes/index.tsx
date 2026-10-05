@@ -15,6 +15,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { CinematicPlayer, DeveloperDashboard, UploadDrawer, type ArchiveEdit } from "@/components/archive-experiences";
+import { OceanCanvas } from "@/components/ocean-canvas";
 import coastalMemory from "@/assets/coastal-memory.jpg";
 import neonAfterglow from "@/assets/neon-afterglow.jpg";
 import tidalStudy from "@/assets/tidal-study.jpg";
@@ -70,7 +71,7 @@ function Index() {
   return (
     <main className="min-h-screen overflow-hidden bg-background text-foreground">
       <header className="fixed inset-x-0 top-0 z-40 px-4 pt-4 sm:px-8 sm:pt-6">
-        <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between border border-border/70 bg-background/55 px-4 backdrop-blur-xl sm:px-6">
+        <nav className="glass-panel mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <a href="#top" className="flex items-center gap-3 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground sm:text-xs">
             <span className="relative flex size-2">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" />
@@ -89,42 +90,38 @@ function Index() {
         </nav>
       </header>
 
-      <section id="top" className="relative flex min-h-[94svh] items-center justify-center px-5 pb-12 pt-28">
-        <motion.img
-          src={tidalStudy}
-          alt="Moonlit ocean waves"
-          width={1440}
-          height={900}
-          className="absolute inset-0 h-full w-full object-cover opacity-60"
-          initial={reduceMotion ? false : { scale: 1.08 }}
-          animate={reduceMotion ? false : { scale: 1 }}
-          transition={{ duration: 3.5, ease: "easeOut" }}
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,var(--hero-overlay-soft),var(--hero-overlay)_72%,var(--background))]" />
+      <section id="top" className="relative flex min-h-[96svh] items-center justify-center overflow-hidden px-5 pb-16 pt-28">
+        <OceanCanvas />
+        <motion.img src={tidalStudy} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-20 mix-blend-screen" initial={reduceMotion ? false : { scale: 1.08 }} animate={reduceMotion ? false : { scale: 1 }} transition={{ duration: 6, ease: "easeOut" }} />
+        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,var(--hero-overlay-strong),var(--hero-overlay)_68%,var(--background))]" />
         <div className="ocean-light absolute inset-0" />
-        <motion.div initial={reduceMotion ? false : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 0.25 }} className="relative z-10 mx-auto max-w-5xl text-center">
-          <div className="mb-8 inline-flex border border-primary/35 bg-background/25 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.3em] text-primary backdrop-blur-md sm:text-xs">
+        <motion.div initial={reduceMotion ? false : { opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1.1, delay: 0.2 }} className="relative z-10 mx-auto max-w-5xl text-center">
+          <motion.div animate={reduceMotion ? undefined : { y: [0, -6, 0] }} transition={{ duration: 5, ease: "easeInOut", repeat: Infinity }} className="mb-9 inline-flex items-center gap-4 font-mono text-[9px] uppercase tracking-[0.32em] text-primary sm:text-[10px]">
+            <span className="h-px w-10 bg-primary/40" />
             [ Private digital vault ]
-          </div>
-          <h1 className="font-display text-5xl leading-[0.98] text-foreground sm:text-7xl lg:text-8xl">
-            An aesthetic space<br /><em className="text-primary">for every edit.</em>
+            <span className="h-px w-10 bg-primary/40" />
+          </motion.div>
+          <h1 className="font-display text-6xl font-light leading-[0.9] text-foreground sm:text-8xl lg:text-9xl">
+            Oceanic <em className="font-light text-muted-foreground">Edits</em>
           </h1>
-          <p className="mx-auto mt-7 max-w-xl text-sm leading-7 text-muted-foreground sm:text-base">
-            Unlimited storage, instant downloads, crafted for your raw &amp; finished edits.
+          <p className="mx-auto mt-7 max-w-xl text-[10px] uppercase leading-6 tracking-[0.22em] text-muted-foreground sm:text-xs">
+            A curated sanctuary for the cinematic eye
           </p>
-          <Button size="lg" onClick={() => document.querySelector("#vault")?.scrollIntoView({ behavior: "smooth" })} className="mt-10 h-12 bg-primary px-7 text-[11px] uppercase tracking-[0.18em] text-primary-foreground shadow-[0_0_32px_var(--primary-glow)] hover:bg-primary/90">
-            Explore vault <ArrowDown className="size-4" />
-          </Button>
+          <motion.div animate={reduceMotion ? undefined : { y: [0, 5, 0] }} transition={{ duration: 4, ease: "easeInOut", repeat: Infinity }}>
+            <Button size="lg" onClick={() => document.querySelector("#vault")?.scrollIntoView({ behavior: "smooth" })} className="mt-11 h-12 border border-primary/40 bg-primary/10 px-7 text-[10px] uppercase tracking-[0.2em] text-primary shadow-[0_0_32px_var(--primary-glow)] backdrop-blur-xl hover:bg-primary hover:text-primary-foreground">
+              Enter archive <ArrowDown className="size-4" />
+            </Button>
+          </motion.div>
         </motion.div>
-        <div className="absolute bottom-8 left-1/2 z-10 -translate-x-1/2 font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground">Scroll to descend</div>
+        <div className="absolute bottom-8 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-3 font-mono text-[8px] uppercase tracking-[0.24em] text-muted-foreground"><span>Scroll to descend</span><span className="h-10 w-px bg-gradient-to-b from-primary/50 to-transparent" /></div>
       </section>
 
-      <section id="vault" className="relative px-5 py-20 sm:px-8 sm:py-28">
+      <motion.section id="vault" initial={reduceMotion ? false : { opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.08 }} transition={{ duration: 0.8 }} className="relative px-5 py-20 sm:px-8 sm:py-28">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col justify-between gap-8 border-b border-border pb-8 sm:flex-row sm:items-end">
             <div>
-              <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.28em] text-primary">Archive / 2026</p>
-              <h2 className="font-display text-4xl sm:text-5xl">The main vault</h2>
+              <p className="mb-3 font-mono text-[9px] uppercase tracking-[0.3em] text-primary">Volume 01 · Archive / 2026</p>
+              <h2 className="font-display text-4xl italic font-light sm:text-5xl">Deep Water Studies</h2>
             </div>
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">06 edits · 434.7 MB</p>
           </div>
@@ -137,19 +134,20 @@ function Index() {
             ))}
           </div>
 
-          <motion.div layout className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <motion.div layout className="grid gap-x-6 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
             <AnimatePresence mode="popLayout">
               {visibleEdits.map((edit, index) => (
-                <motion.article layout key={edit.id} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ delay: index * 0.045 }} className="group overflow-hidden border border-border bg-card/60 backdrop-blur-lg">
+                <motion.article layout key={edit.id} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.8, delay: index * 0.055 }} whileHover={reduceMotion ? undefined : { y: -6 }} className="glass-card group overflow-hidden">
                   <div className={`relative overflow-hidden bg-secondary ${edit.format === "9:16" ? "aspect-[4/5]" : "aspect-[16/10]"}`}>
-                    <img src={edit.image} alt={`${edit.title} video thumbnail`} loading="lazy" width={1440} height={900} className="h-full w-full object-cover opacity-85 transition duration-700 ease-out group-hover:scale-105 group-hover:opacity-100" />
+                    <img src={edit.image} alt={`${edit.title} video thumbnail`} loading="lazy" width={1440} height={900} className="h-full w-full object-cover opacity-70 transition-all duration-[900ms] ease-out group-hover:scale-[1.03] group-hover:opacity-100" />
                     <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--card),transparent_55%)] opacity-70" />
                     <div className="absolute left-4 top-4 border border-border bg-background/55 px-2.5 py-1 font-mono text-[9px] tracking-[0.15em] text-foreground backdrop-blur-md">{edit.format}</div>
                     <div className="absolute right-4 top-4 flex gap-2">
                       {edit.favorite && <Heart className="size-4 fill-primary text-primary" aria-label="Favorite" />}
                       <span className="font-mono text-[10px] text-foreground">{edit.duration}</span>
                     </div>
-                    <Button aria-label={`Play ${edit.title}`} onClick={() => setSelected(edit)} size="icon" className="absolute left-1/2 top-1/2 size-12 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/60 bg-background/45 text-primary opacity-100 backdrop-blur-md transition hover:scale-110 hover:bg-primary hover:text-primary-foreground sm:opacity-0 sm:group-hover:opacity-100">
+                    <span className="play-pulse absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+                    <Button aria-label={`Play ${edit.title}`} onClick={() => setSelected(edit)} size="icon" className="absolute left-1/2 top-1/2 size-12 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/70 bg-background/55 text-primary opacity-100 shadow-[0_0_30px_var(--primary-glow)] backdrop-blur-xl transition-all duration-500 hover:scale-110 hover:bg-primary hover:text-primary-foreground sm:opacity-0 sm:group-hover:opacity-100">
                       <Play className="ml-0.5 size-4 fill-current" />
                     </Button>
                   </div>
@@ -171,7 +169,7 @@ function Index() {
             </AnimatePresence>
           </motion.div>
         </div>
-      </section>
+      </motion.section>
 
       <footer className="border-t border-border px-5 py-10 sm:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-6">
