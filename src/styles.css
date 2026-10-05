@@ -197,9 +197,9 @@
     --glass-border: oklch(0.79 0.12 210 / 30%);
     --glass-shadow: 0 8px 32px 0 oklch(0 0 0 / 58%), inset 0 0 18px oklch(0.79 0.12 210 / 5%);
     --glass-shadow-hover: 0 16px 48px 0 oklch(0 0 0 / 70%), inset 0 0 26px oklch(0.79 0.12 210 / 11%), 0 0 30px oklch(0.79 0.12 210 / 21%);
-    --hero-overlay: oklch(0.13 0.03 263 / 92%);
+    --hero-overlay: oklch(0.13 0.03 263 / 68%);
     --hero-overlay-soft: oklch(0.13 0.03 263 / 25%);
-    --hero-overlay-strong: oklch(0.13 0.03 263 / 80%);
+    --hero-overlay-strong: oklch(0.13 0.03 263 / 56%);
     --ocean-backdrop: radial-gradient(ellipse at 50% -5%, #1e293b 0%, #030712 58%, #02040a 100%);
   }
 

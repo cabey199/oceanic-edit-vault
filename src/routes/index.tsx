@@ -41,10 +41,10 @@ const filters: Category[] = ["All Edits", "TikTok / Reels", "Landscape", "Favori
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Oceanic Edits Archive — Private Digital Vault" },
-      { name: "description", content: "A private, beautifully curated archive for raw and finished video edits." },
-      { property: "og:title", content: "Oceanic Edits Archive" },
-      { property: "og:description", content: "A private digital vault for cinematic edits." },
+      { title: "chico’s POV — Oceanic Edits Archive" },
+      { name: "description", content: "A personal ocean of memories, edits, and moments through Chico’s point of view." },
+      { property: "og:title", content: "chico’s POV" },
+      { property: "og:description", content: "A personal ocean of memories, edits, and moments through Chico’s point of view." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -132,7 +132,7 @@ function Index() {
   const shareEdit = useCallback(async (edit: ArchiveEdit) => {
     try {
       if (navigator.share) {
-        await navigator.share({ title: edit.title, text: `${edit.title} · Oceanic Edits Archive`, url: window.location.href });
+        await navigator.share({ title: edit.title, text: `${edit.title} · chico’s POV`, url: window.location.href });
       } else {
         await navigator.clipboard.writeText(window.location.href);
         flashNotice(`${edit.title} link copied`);
@@ -144,7 +144,10 @@ function Index() {
   }, [flashNotice]);
 
   return (
-    <main data-ocean-theme={theme} className="ocean-archive min-h-screen overflow-hidden bg-background text-foreground">
+    <main data-ocean-theme={theme} className="ocean-archive relative isolate min-h-screen overflow-hidden bg-background text-foreground">
+      <motion.div className="pointer-events-none fixed inset-[-15vh] -z-10" style={{ y: oceanDrift }}>
+        <OceanCanvas theme={theme} scrollY={scrollY} />
+      </motion.div>
       <header className="fixed inset-x-0 top-0 z-40 px-4 pt-4 sm:px-8 sm:pt-6">
         <nav className="glass-panel mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <a href="#top" className="flex items-center gap-3 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground sm:text-xs">
@@ -152,7 +155,7 @@ function Index() {
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" />
               <span className="relative inline-flex size-2 rounded-full bg-primary shadow-[0_0_14px_var(--primary)]" />
             </span>
-            <span className="ocean-brand">HERNAME.ARCHIVE</span>
+            <span className="ocean-brand">chico’s POV</span>
           </a>
           <div className="flex items-center gap-2">
             <Button aria-label={theme === "calm" ? "Switch to Wavy Night theme" : "Switch to Calm Day theme"} title={theme === "calm" ? "Wavy Night" : "Calm Day"} variant="ghost" size="icon" onClick={() => setTheme((current) => current === "calm" ? "night" : "calm")} className="text-primary hover:bg-primary/10 hover:text-primary">
@@ -169,12 +172,11 @@ function Index() {
       </header>
 
       <section id="top" className="relative flex min-h-[96svh] items-center justify-center overflow-hidden px-5 pb-16 pt-28">
-        <motion.div className="absolute inset-0" style={{ y: oceanDrift }}>
-          <OceanCanvas theme={theme} />
+        <div className="absolute inset-0">
           <motion.img src={tidalStudy} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-20 mix-blend-screen" initial={reduceMotion ? false : { scale: 1.08 }} animate={reduceMotion ? false : { scale: 1 }} transition={{ duration: 6, ease: "easeOut" }} />
           <div className="absolute inset-0 bg-[linear-gradient(to_bottom,var(--hero-overlay-strong),var(--hero-overlay)_68%,var(--background))]" />
           <div className="ocean-light absolute inset-0" />
-        </motion.div>
+        </div>
         <motion.div initial={reduceMotion ? false : { opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1.1, delay: 0.2 }} className="relative z-10 mx-auto max-w-5xl text-center">
           <motion.div animate={reduceMotion ? false : { y: [0, -6, 0] }} transition={{ duration: 5, ease: "easeInOut", repeat: Infinity }} className="mb-9 inline-flex items-center gap-4 font-mono text-[9px] uppercase tracking-[0.32em] text-primary sm:text-[10px]">
             <span className="h-px w-10 bg-primary/40" />
@@ -182,10 +184,10 @@ function Index() {
             <span className="h-px w-10 bg-primary/40" />
           </motion.div>
           <h1 className="font-display text-6xl font-light leading-[0.9] text-foreground sm:text-8xl lg:text-9xl">
-            Oceanic <em className="font-light text-muted-foreground">Edits</em>
+            chico’s <em className="font-light text-muted-foreground">POV</em>
           </h1>
           <p className="mx-auto mt-7 max-w-xl text-[10px] uppercase leading-6 tracking-[0.22em] text-muted-foreground sm:text-xs">
-            A curated sanctuary for the cinematic eye
+            A personal ocean of memories, edits, and moments
           </p>
           <motion.div animate={reduceMotion ? false : { y: [0, 5, 0] }} transition={{ duration: 4, ease: "easeInOut", repeat: Infinity }}>
             <Button size="lg" onClick={() => document.querySelector("#vault")?.scrollIntoView({ behavior: "smooth" })} className="mt-11 h-12 border border-primary/40 bg-primary/10 px-7 text-[10px] uppercase tracking-[0.2em] text-primary shadow-[0_0_32px_var(--primary-glow)] backdrop-blur-xl hover:bg-primary hover:text-primary-foreground">
