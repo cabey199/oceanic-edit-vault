@@ -1,3 +1,4 @@
+import { AuthGate } from './AuthGate';
 import { StealthConsole } from './StealthConsole';
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -167,12 +168,22 @@ export function CinematicPlayer({ edit, onClose, onSave }: { edit: ArchiveEdit |
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button size="icon" variant="ghost" aria-label={playing ? "Pause video" : "Play video"} onClick={() => setPlaying((value) => !value)}>{playing ? <Pause /> : <Play className="fill-current" />}</Button>
           <Volume2 className="size-4 text-muted-foreground" />
-          <span className="font-mono text-[9px] text-muted-foreground">00:{String(Math.round(position * .24)).padStart(2, "0")} / {edit.duration}</span>
+          <span className="font-mono text-[9px] text-muted-foreground">00:{String(Math.round(position * 0.24)).padStart(2, "0")} / {edit.duration}</span>
           <div className="min-w-0 flex-1 sm:ml-4"><h2 className="truncate font-display text-xl sm:text-3xl">{edit.title}</h2><p className="text-xs text-muted-foreground">{edit.note}</p></div>
           <Button onClick={() => onSave(edit.title)} className="w-full bg-primary text-primary-foreground shadow-[0_0_25px_var(--primary-glow)] hover:bg-primary/90 sm:w-auto"><ImageDown /> Save to Phone Camera Roll</Button>
         </div>
-        <StealthConsole />
       </div>
     </motion.div>
   </motion.div>}</AnimatePresence>;
+}
+
+export default function ArchiveExperiences() {
+  return (
+    <AuthGate>
+      <main className="relative min-h-screen bg-background text-foreground">
+        {/* Main Vault Content Rendered Here */}
+        <StealthConsole />
+      </main>
+    </AuthGate>
+  );
 }
