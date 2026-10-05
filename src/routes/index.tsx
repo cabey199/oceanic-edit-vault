@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AnimatePresence, motion, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
+import { AnimatePresence, motion, useAnimationFrame, useMotionValue, useReducedMotion, useScroll } from "framer-motion";
 import {
   ArrowDown,
   Cat,
@@ -61,14 +61,13 @@ function Index() {
   const [notice, setNotice] = useState<string | null>(null);
   const [theme, setTheme] = useState<OceanTheme>("calm");
   const { scrollY } = useScroll();
-  const springScroll = useSpring(scrollY, { stiffness: 72, damping: 22, mass: 0.8 });
-  const tideScroll = reduceMotion ? scrollY : springScroll;
-  const oceanDrift = useTransform(tideScroll, [0, 900], [0, theme === "night" ? 28 : 18]);
-  const headerDrift = useTransform(tideScroll, [0, 2400], [0, theme === "night" ? -10 : -6]);
-  const heroDrift = useTransform(tideScroll, [0, 900], [0, -48]);
-  const archiveDrift = useTransform(tideScroll, [500, 2600], [0, theme === "night" ? -32 : -20]);
-  const cardDrift = useTransform(tideScroll, [600, 2800], [0, theme === "night" ? -14 : -9]);
-  const footerDrift = useTransform(tideScroll, [1800, 3600], [0, -16]);
+  const surfaceTide = useMotionValue(0);
+  useAnimationFrame((time) => {
+    if (reduceMotion) return;
+    const scrollSwell = Math.sin(scrollY.get() * 0.0022) * (theme === "night" ? 11 : 7);
+    const surfaceSway = Math.sin(time * (theme === "night" ? 0.0009 : 0.00038)) * (theme === "night" ? 3.5 : 2);
+    surfaceTide.set(scrollSwell + surfaceSway);
+  });
 
   useEffect(() => {
     if (reduceMotion) return;
@@ -152,10 +151,10 @@ function Index() {
 
   return (
     <main data-ocean-theme={theme} className="ocean-archive relative isolate min-h-screen overflow-hidden bg-background text-foreground">
-      <motion.div className="pointer-events-none fixed inset-[-15vh] -z-10" style={{ y: oceanDrift }}>
-        <OceanCanvas theme={theme} scrollY={tideScroll} />
+      <motion.div className="pointer-events-none fixed inset-[-15vh] -z-10" style={{ y: surfaceTide }}>
+        <OceanCanvas theme={theme} scrollY={surfaceTide} />
       </motion.div>
-      <motion.header style={{ y: headerDrift }} className="fixed inset-x-0 top-0 z-40 px-4 pt-4 sm:px-8 sm:pt-6">
+      <motion.header style={{ y: surfaceTide }} className="fixed inset-x-0 top-0 z-40 px-4 pt-4 sm:px-8 sm:pt-6">
         <nav className="glass-panel mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <a href="#top" className="flex items-center gap-3 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground sm:text-xs">
             <span className="relative flex size-2">
@@ -178,33 +177,33 @@ function Index() {
         </nav>
       </motion.header>
 
-      <motion.section id="top" style={{ y: heroDrift }} className="relative flex min-h-[96svh] items-center justify-center overflow-hidden px-5 pb-16 pt-28">
+      <motion.section id="top" style={{ y: surfaceTide }} className="relative flex min-h-[96svh] items-center justify-center overflow-hidden px-5 pb-16 pt-28">
         <div className="absolute inset-0">
           <div className="hero-readable-overlay absolute inset-0" />
           <div className="ocean-light absolute inset-0" />
         </div>
         <motion.div initial={reduceMotion ? false : { opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1.1, delay: 0.2 }} className="relative z-10 mx-auto max-w-5xl text-center">
-          <motion.div animate={reduceMotion ? false : { y: [0, -6, 0] }} transition={{ duration: 5, ease: "easeInOut", repeat: Infinity }} className="mb-9 inline-flex items-center gap-4 font-mono text-[9px] uppercase tracking-[0.32em] text-primary sm:text-[10px]">
+          <div className="mb-9 inline-flex items-center gap-4 font-mono text-[9px] uppercase tracking-[0.32em] text-primary sm:text-[10px]">
             <span className="h-px w-10 bg-primary/40" />
             [ Private digital vault ]
             <span className="h-px w-10 bg-primary/40" />
-          </motion.div>
+          </div>
           <h1 className="font-display text-6xl font-light leading-[0.9] text-foreground sm:text-8xl lg:text-9xl">
             chico’s <em className="font-light text-muted-foreground">POV</em>
           </h1>
           <p className="mx-auto mt-7 max-w-xl text-[10px] uppercase leading-6 tracking-[0.22em] text-muted-foreground sm:text-xs">
             A personal ocean of memories, edits, and moments
           </p>
-          <motion.div animate={reduceMotion ? false : { y: [0, 5, 0] }} transition={{ duration: 4, ease: "easeInOut", repeat: Infinity }}>
+          <div>
             <Button size="lg" onClick={() => document.querySelector("#vault")?.scrollIntoView({ behavior: "smooth" })} className="mt-11 h-12 border border-primary/40 bg-primary/10 px-7 text-[10px] uppercase tracking-[0.2em] text-primary shadow-[0_0_32px_var(--primary-glow)] backdrop-blur-xl hover:bg-primary hover:text-primary-foreground">
               Enter archive <ArrowDown className="size-4" />
             </Button>
-          </motion.div>
+          </div>
         </motion.div>
         <div className="absolute bottom-8 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-3 font-mono text-[8px] uppercase tracking-[0.24em] text-muted-foreground"><span>Scroll to descend</span><span className="h-10 w-px bg-gradient-to-b from-primary/50 to-transparent" /></div>
       </motion.section>
 
-      <motion.div style={{ y: archiveDrift }}>
+      <motion.div style={{ y: surfaceTide }}>
       <motion.section id="vault" initial={reduceMotion ? false : { opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.08 }} transition={{ duration: 0.8 }} className="relative px-5 py-20 sm:px-8 sm:py-28">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col justify-between gap-8 border-b border-border pb-8 sm:flex-row sm:items-end">
@@ -226,7 +225,7 @@ function Index() {
           <motion.div layout className="grid gap-x-6 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
             <AnimatePresence mode="popLayout">
               {visibleEdits.map((edit, index) => (
-                <motion.div layout key={edit.id} style={{ y: cardDrift }}>
+                <motion.div layout key={edit.id}>
                 <motion.article layout initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.8, delay: index * 0.055 }} {...(reduceMotion ? {} : { whileHover: { y: -4 } })} className="glass-card group overflow-hidden">
                   <div className={`relative overflow-hidden bg-secondary ${edit.format === "9:16" ? "aspect-[4/5]" : "aspect-[16/10]"}`}>
                     <img src={edit.image} alt={`${edit.title} video thumbnail`} loading="lazy" width={1440} height={900} className="h-full w-full object-cover opacity-70 transition-all duration-[900ms] ease-out group-hover:scale-[1.03] group-hover:opacity-100" />
@@ -264,7 +263,7 @@ function Index() {
       </motion.section>
       </motion.div>
 
-      <motion.footer style={{ y: footerDrift }} className="border-t border-border px-5 py-10 sm:px-8">
+      <motion.footer style={{ y: surfaceTide }} className="border-t border-border px-5 py-10 sm:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-6">
           <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">Private collection · Forever yours</p>
           <div className="relative">

@@ -1,4 +1,4 @@
-import { motion, useReducedMotion, useTransform, type MotionValue } from "framer-motion";
+import { motion, useReducedMotion, type MotionValue } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
 import tidalStudy from "@/assets/tidal-study.jpg";
@@ -44,7 +44,7 @@ const fragmentSource = `
   }
 
   void main() {
-    float time = u_time * mix(0.42, 1.7, u_storm) + u_scroll;
+    float time = u_time * mix(0.42, 1.7, u_storm) + u_scroll * mix(0.02, 0.055, u_storm);
     vec2 cover = vec2(1.0);
     float view_aspect = u_resolution.x / u_resolution.y;
     float image_aspect = u_image_size.x / u_image_size.y;
@@ -55,22 +55,18 @@ const fragmentSource = `
     }
 
     vec2 uv = (v_uv - 0.5) * cover + 0.5;
-    vec2 water = uv * vec2(8.0, 12.0);
+    vec2 water = uv * mix(vec2(3.5, 5.0), vec2(7.0, 10.0), u_storm);
     float long_swell = layeredNoise(water, vec2(time * 0.18, -time * 0.11));
     float cross_swell = layeredNoise(water * 1.63, vec2(-time * 0.31, time * 0.24));
     float chop = noise(water * 2.8 + vec2(time * 0.45, time * 0.52));
 
     vec2 flow = vec2(cross_swell - long_swell, long_swell - chop);
-    vec2 displacement = flow * mix(0.006, 0.019, u_storm);
-    displacement.x += sin(uv.y * 25.0 + uv.x * 8.0 + time * 0.8) * mix(0.001, 0.003, u_storm);
+    vec2 displacement = flow * mix(0.01, 0.037, u_storm);
+    displacement.x += sin(uv.y * 18.0 + uv.x * 5.0 + time * 0.8) * mix(0.0015, 0.004, u_storm);
     uv = clamp(uv + displacement, 0.001, 0.999);
 
     vec3 color = texture2D(u_ocean, uv).rgb;
     color *= mix(vec3(1.08, 1.15, 1.18), vec3(0.58, 0.74, 0.94), u_storm);
-    float glint_field = noise(water * 3.2 + vec2(-time * 0.65, time * 0.48));
-    float glints = smoothstep(0.68, 0.82, glint_field) * mix(0.13, 0.24, u_storm);
-    color += vec3(0.43, 0.75, 0.86) * glints;
-
     float edge = smoothstep(0.0, 0.18, v_uv.y) * (1.0 - smoothstep(0.78, 1.0, v_uv.y));
     color *= mix(0.72, 1.0, edge);
     gl_FragColor = vec4(color, 1.0);
@@ -89,7 +85,6 @@ export function OceanCanvas({
   const activeTheme = useRef(theme);
   activeTheme.current = theme;
   const [shaderReady, setShaderReady] = useState(false);
-  const parallaxY = useTransform(scrollY, [0, 3000], [0, -90]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -172,7 +167,7 @@ export function OceanCanvas({
 
     const render = (timestamp: number) => {
       gl.uniform1f(uniforms.time, reduceMotion ? 0 : (timestamp - startedAt) * 0.001);
-      gl.uniform1f(uniforms.scroll, reduceMotion ? 0 : scrollY.get() * 0.0007);
+      gl.uniform1f(uniforms.scroll, reduceMotion ? 0 : scrollY.get());
       gl.uniform1f(uniforms.storm, activeTheme.current === "night" ? 1 : 0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       if (!reduceMotion) frame = window.requestAnimationFrame(render);
@@ -213,7 +208,6 @@ export function OceanCanvas({
         aria-hidden="true"
         className="absolute inset-[-8%] h-[116%] w-[116%] object-cover transition-opacity duration-700"
         style={{
-          y: reduceMotion ? 0 : parallaxY,
           opacity: shaderReady ? 0 : 1,
           filter: theme === "calm"
             ? "brightness(1.18) saturate(.82)"
