@@ -1,6 +1,7 @@
 import { motion, useReducedMotion, type MotionValue } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
+import calmOcean from "@/assets/calm-ocean.jpg";
 import tidalStudy from "@/assets/tidal-study.jpg";
 
 const vertexSource = `
@@ -66,7 +67,7 @@ const fragmentSource = `
     uv = clamp(uv + displacement, 0.001, 0.999);
 
     vec3 color = texture2D(u_ocean, uv).rgb;
-    color *= mix(vec3(1.08, 1.15, 1.18), vec3(0.58, 0.74, 0.94), u_storm);
+    color *= mix(vec3(1.12, 1.22, 1.3), vec3(0.82, 0.9, 1.04), u_storm);
     float edge = smoothstep(0.0, 0.18, v_uv.y) * (1.0 - smoothstep(0.78, 1.0, v_uv.y));
     color *= mix(0.72, 1.0, edge);
     gl_FragColor = vec4(color, 1.0);
@@ -147,9 +148,12 @@ export function OceanCanvas({
       storm: gl.getUniformLocation(program, "u_storm"),
     };
 
-    const image = new Image();
+    const images: Partial<Record<"calm" | "night", HTMLImageElement>> = {};
+    const imageSources = { calm: calmOcean, night: tidalStudy };
+    let loadedImages = 0;
     let frame = 0;
     let startedAt = 0;
+    let boundTheme: "calm" | "night" | null = null;
     let mounted = true;
 
     const resize = () => {
@@ -166,26 +170,39 @@ export function OceanCanvas({
     };
 
     const render = (timestamp: number) => {
+      const currentTheme = activeTheme.current;
+      if (currentTheme !== boundTheme) {
+        const image = images[currentTheme];
+        if (!image) return;
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+        gl.uniform2f(uniforms.imageSize, image.naturalWidth, image.naturalHeight);
+        boundTheme = currentTheme;
+      }
       gl.uniform1f(uniforms.time, reduceMotion ? 0 : (timestamp - startedAt) * 0.001);
       gl.uniform1f(uniforms.scroll, reduceMotion ? 0 : scrollY.get());
-      gl.uniform1f(uniforms.storm, activeTheme.current === "night" ? 1 : 0);
+      gl.uniform1f(uniforms.storm, currentTheme === "night" ? 1 : 0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       if (!reduceMotion) frame = window.requestAnimationFrame(render);
     };
 
-    image.onload = () => {
-      if (!mounted) return;
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
-      gl.uniform1i(uniforms.ocean, 0);
-      gl.uniform2f(uniforms.imageSize, image.naturalWidth, image.naturalHeight);
-      resize();
-      setShaderReady(true);
-      startedAt = performance.now();
-      frame = window.requestAnimationFrame(render);
-    };
-    image.src = tidalStudy;
+    for (const mode of ["calm", "night"] as const) {
+      const image = new Image();
+      images[mode] = image;
+      image.onload = () => {
+        if (!mounted) return;
+        loadedImages += 1;
+        if (loadedImages === 2) {
+          gl.uniform1i(uniforms.ocean, 0);
+          resize();
+          setShaderReady(true);
+          startedAt = performance.now();
+          frame = window.requestAnimationFrame(render);
+        }
+      };
+      image.src = imageSources[mode];
+    }
 
     window.addEventListener("resize", resize);
     return () => {
@@ -203,14 +220,14 @@ export function OceanCanvas({
   return (
     <div className="absolute inset-0 overflow-hidden">
       <motion.img
-        src={tidalStudy}
+        src={theme === "calm" ? calmOcean : tidalStudy}
         alt=""
         aria-hidden="true"
         className="absolute inset-[-8%] h-[116%] w-[116%] object-cover transition-opacity duration-700"
         style={{
           opacity: shaderReady ? 0 : 1,
           filter: theme === "calm"
-            ? "brightness(1.18) saturate(.82)"
+            ? "brightness(1.12) saturate(.82)"
             : "brightness(.56) contrast(1.18) saturate(1.16)",
         }}
         animate={reduceMotion || shaderReady ? false : {
@@ -229,8 +246,15 @@ export function OceanCanvas({
         className="absolute inset-[-8%] h-[116%] w-[116%] transition-opacity duration-700"
         style={{ opacity: shaderReady ? 1 : 0 }}
       />
-      <div className={`absolute inset-0 ${theme === "night" ? "bg-slate-950/50" : "bg-cyan-950/15"}`} />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(3,7,18,.18)_0%,rgba(3,7,18,.12)_42%,rgba(3,7,18,.64)_100%)]" />
+      <div className={`absolute inset-0 ${theme === "night" ? "bg-slate-950/15" : "bg-cyan-950/10"}`} />
+      <div
+        className="absolute inset-0"
+        style={{
+          background: theme === "night"
+            ? "linear-gradient(180deg, rgba(3,7,18,.08) 0%, rgba(3,7,18,.1) 42%, rgba(3,7,18,.34) 100%)"
+            : "linear-gradient(180deg, rgba(3,7,18,.06) 0%, rgba(3,7,18,.08) 42%, rgba(3,7,18,.4) 100%)",
+        }}
+      />
     </div>
   );
 }

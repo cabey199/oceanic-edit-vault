@@ -63,7 +63,10 @@ function Index() {
   const { scrollY } = useScroll();
   const surfaceTide = useMotionValue(0);
   useAnimationFrame((time) => {
-    if (reduceMotion) return;
+    if (reduceMotion) {
+      surfaceTide.set(0);
+      return;
+    }
     const scrollSwell = Math.sin(scrollY.get() * 0.0022) * (theme === "night" ? 11 : 7);
     const surfaceSway = Math.sin(time * (theme === "night" ? 0.0009 : 0.00038)) * (theme === "night" ? 3.5 : 2);
     surfaceTide.set(scrollSwell + surfaceSway);
@@ -76,16 +79,21 @@ function Index() {
     document.documentElement.style.scrollBehavior = "auto";
     let targetScroll = window.scrollY;
     let frame = 0;
+    let previousFrameTime = 0;
 
-    const drift = () => {
+    const drift = (time: number) => {
+      const elapsed = previousFrameTime ? Math.min(time - previousFrameTime, 64) : 16;
+      previousFrameTime = time;
       const currentScroll = window.scrollY;
       const difference = targetScroll - currentScroll;
       if (Math.abs(difference) < 0.6) {
         window.scrollTo(0, targetScroll);
         frame = 0;
+        previousFrameTime = 0;
         return;
       }
-      window.scrollTo(0, currentScroll + difference * 0.12);
+      const damping = 1 - Math.exp(-elapsed / 100);
+      window.scrollTo(0, currentScroll + difference * damping);
       frame = window.requestAnimationFrame(drift);
     };
 
