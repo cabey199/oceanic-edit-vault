@@ -23,6 +23,7 @@ import {
 import { type ChangeEvent, type DragEvent, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/lib/supabase";
 import { cancelCompression, compressVideo, type CompressionResult } from "@/lib/video-compressor";
 
 export type ArchiveEdit = {
@@ -277,6 +278,61 @@ export function DeveloperDashboard({
   onClose?: () => void;
 }) {
   const [compress, setCompress] = useState(true);
+  const [access, setAccess] = useState<"checking" | "granted" | "denied">("checking");
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        if (active) setAccess("denied");
+        return;
+      }
+      const { data: membership, error } = await supabase
+        .from("archive_memberships")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+      if (active) setAccess(!error && membership?.role === "developer" ? "granted" : "denied");
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (access === "checking") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-5 text-foreground">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary">
+          Verifying developer access…
+        </p>
+      </main>
+    );
+  }
+
+  if (access === "denied") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-5 text-foreground">
+        <section className="glass-panel max-w-md p-8 text-center">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-destructive">
+            Access denied
+          </p>
+          <h1 className="mt-3 font-display text-4xl">Developer access required</h1>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            This control room is restricted to authenticated developer accounts.
+          </p>
+          {onClose && (
+            <Button variant="outline" onClick={onClose} className="mt-6">
+              Return to archive
+            </Button>
+          )}
+        </section>
+      </main>
+    );
+  }
+
   const content = (
     <div className="mx-auto w-full max-w-6xl">
       <div className="flex items-start justify-between gap-6">

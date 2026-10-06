@@ -236,13 +236,16 @@ export function OceanCanvas({
           <source src={nightSurf} type="video/mp4" />
         </video>
       )}
-      <div className={`absolute inset-0 ${theme === "night" ? "bg-slate-950/10" : "bg-cyan-950/10"}`} />
+      <div
+        className={`absolute inset-0 ${theme === "night" ? "bg-slate-950/10" : "bg-cyan-950/10"}`}
+      />
       <div
         className="absolute inset-0"
         style={{
-          background: theme === "night"
-            ? "linear-gradient(180deg, rgba(3,7,18,.08) 0%, rgba(3,7,18,.1) 42%, rgba(3,7,18,.34) 100%)"
-            : "linear-gradient(180deg, rgba(3,7,18,.06) 0%, rgba(3,7,18,.08) 42%, rgba(3,7,18,.4) 100%)",
+          background:
+            theme === "night"
+              ? "linear-gradient(180deg, rgba(3,7,18,.08) 0%, rgba(3,7,18,.1) 42%, rgba(3,7,18,.34) 100%)"
+              : "linear-gradient(180deg, rgba(3,7,18,.06) 0%, rgba(3,7,18,.08) 42%, rgba(3,7,18,.4) 100%)",
         }}
       />
     </div>
