@@ -165,6 +165,29 @@ This means **compressing file size is not the same as lowering resolution**. The
 
 The playback copy is allowed to be somewhat more compressed than the original because it is used for streaming, but it must remain visually clean. Use a quality-based encoder setting, preserve the original dimensions, and test dark scenes, text, fast movement, gradients, and audio synchronization. If a 100 MB upload becomes 20 MB but looks visibly blurry or blocky, the quality target is too aggressive and must be adjusted.
 
+### Product decision: compressed-only, quality-first storage
+
+The product will use the compressed-only model for the main archive:
+
+```text
+100 MB upload
+→ one quality-controlled playback/download file
+→ perhaps 20 MB, 35 MB, or another size depending on the content
+```
+
+The exact 20 MB result is not a requirement. A fixed size target could force a difficult video to become visibly bad. Instead, the encoder should use a quality target and accept the resulting size. The same stored compressed file will be used for both website playback and downloads.
+
+The upload must be rejected or retried if any of these occur:
+
+- Resolution changes.
+- Orientation or aspect ratio changes.
+- Duration changes beyond a small tolerance.
+- Audio disappears unexpectedly.
+- Audio and video become noticeably out of sync.
+- The output has obvious blocking, banding, softness, or other visible damage in the quality review.
+
+This model intentionally prioritizes a video that still looks relatively like the upload over a guaranteed storage ratio. If a particular source cannot be reduced aggressively without visible damage, it must remain larger rather than being forced into an arbitrary 20 MB limit.
+
 The system will store at least three different media types:
 
 1. **Original** — untouched, full-quality download file.
@@ -592,11 +615,11 @@ Start with `viewer` because it is the least powerful role.
 
 The product uses three roles:
 
-| Role | Can view archive | Can edit archive | Can invite | Can use developer vault |
-|---|---:|---:|---:|---:|
-| Viewer | Yes | No | No | No |
-| Editor | Yes | Yes | No | No |
-| Developer | Yes | Yes | Yes | Yes |
+| Role      | Can view archive | Can edit archive | Can invite | Can use developer vault |
+| --------- | ---------------: | ---------------: | ---------: | ----------------------: |
+| Viewer    |              Yes |               No |         No |                      No |
+| Editor    |              Yes |              Yes |         No |                      No |
+| Developer |              Yes |              Yes |        Yes |                     Yes |
 
 ### Invitation behavior to implement
 
@@ -671,11 +694,11 @@ In Cloudflare:
 4. Open **Variables and Secrets**.
 5. Add or verify the following values.
 
-| Name | Type | Where it is used |
-|---|---|---|
-| `SUPABASE_URL` | Variable | Worker server code |
-| `SUPABASE_ANON_KEY` | Variable | Worker/server compatibility |
-| `SUPABASE_SERVICE_ROLE_KEY` | Secret | Server-only Supabase admin calls |
+| Name                        | Type     | Where it is used                 |
+| --------------------------- | -------- | -------------------------------- |
+| `SUPABASE_URL`              | Variable | Worker server code               |
+| `SUPABASE_ANON_KEY`         | Variable | Worker/server compatibility      |
+| `SUPABASE_SERVICE_ROLE_KEY` | Secret   | Server-only Supabase admin calls |
 
 The service-role key must be a secret, not an ordinary visible variable.
 

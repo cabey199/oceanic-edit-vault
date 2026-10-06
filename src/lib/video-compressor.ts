@@ -16,12 +16,15 @@ export type CompressionResult = {
   savedPercent: number;
   width: number;
   height: number;
+  duration: number;
 };
 
 let ffmpegPromise: Promise<FFmpeg> | undefined;
 let activeFFmpeg: FFmpeg | undefined;
 
-function readVideoDimensions(source: File | Blob): Promise<{ width: number; height: number }> {
+function readVideoMetadata(
+  source: File | Blob,
+): Promise<{ width: number; height: number; duration: number }> {
   return new Promise((resolve, reject) => {
     const video = document.createElement("video");
     const objectUrl = URL.createObjectURL(source);
@@ -31,13 +34,17 @@ function readVideoDimensions(source: File | Blob): Promise<{ width: number; heig
     };
     video.preload = "metadata";
     video.onloadedmetadata = () => {
-      const dimensions = { width: video.videoWidth, height: video.videoHeight };
+      const metadata = {
+        width: video.videoWidth,
+        height: video.videoHeight,
+        duration: video.duration,
+      };
       cleanup();
-      if (!dimensions.width || !dimensions.height) {
-        reject(new Error("Video dimensions could not be read."));
+      if (!metadata.width || !metadata.height || !Number.isFinite(metadata.duration)) {
+        reject(new Error("Video metadata could not be read."));
         return;
       }
-      resolve(dimensions);
+      resolve(metadata);
     };
     video.onerror = () => {
       cleanup();
@@ -74,7 +81,7 @@ export async function compressVideo(
   file: File,
   onProgress?: (progress: CompressionProgress) => void,
 ): Promise<CompressionResult> {
-  const sourceDimensions = await readVideoDimensions(file);
+  const sourceMetadata = await readVideoMetadata(file);
   const ffmpeg = await getFFmpeg();
   onProgress?.({ phase: "compressing", progress: 0.08 });
 
@@ -107,17 +114,24 @@ export async function compressVideo(
   const outputData = await ffmpeg.readFile(outputName);
   const outputBytes = new Uint8Array(outputData as Uint8Array);
   const blob = new Blob([outputBytes], { type: "video/mp4" });
-  const outputDimensions = await readVideoDimensions(blob);
+  const outputMetadata = await readVideoMetadata(blob);
   await ffmpeg.deleteFile(inputName);
   await ffmpeg.deleteFile(outputName);
   onProgress?.({ phase: "finalizing", progress: 1 });
 
   if (
-    outputDimensions.width !== sourceDimensions.width ||
-    outputDimensions.height !== sourceDimensions.height
+    outputMetadata.width !== sourceMetadata.width ||
+    outputMetadata.height !== sourceMetadata.height
   ) {
     throw new Error(
-      `Playback compression changed the resolution from ${sourceDimensions.width}×${sourceDimensions.height} to ${outputDimensions.width}×${outputDimensions.height}.`,
+      `Playback compression changed the resolution from ${sourceMetadata.width}×${sourceMetadata.height} to ${outputMetadata.width}×${outputMetadata.height}.`,
+    );
+  }
+
+  const durationTolerance = Math.max(0.25, sourceMetadata.duration * 0.01);
+  if (Math.abs(outputMetadata.duration - sourceMetadata.duration) > durationTolerance) {
+    throw new Error(
+      `Playback compression changed the duration from ${sourceMetadata.duration.toFixed(2)}s to ${outputMetadata.duration.toFixed(2)}s.`,
     );
   }
 
@@ -127,7 +141,8 @@ export async function compressVideo(
     inputBytes: file.size,
     outputBytes: blob.size,
     savedPercent: file.size === 0 ? 0 : Math.max(0, Math.round((1 - blob.size / file.size) * 100)),
-    width: sourceDimensions.width,
-    height: sourceDimensions.height,
+    width: sourceMetadata.width,
+    height: sourceMetadata.height,
+    duration: sourceMetadata.duration,
   };
 }
