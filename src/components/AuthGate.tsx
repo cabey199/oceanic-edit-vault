@@ -1,19 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import React, { useState, useEffect } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -21,7 +18,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
 
@@ -30,21 +29,21 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg('');
+    setErrorMsg("");
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) setErrorMsg(error.message);
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg('');
-    setSuccessMsg('');
+    setErrorMsg("");
+    setSuccessMsg("");
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
       setErrorMsg(error.message);
     } else {
-      setSuccessMsg('Password updated successfully!');
-      setNewPassword('');
+      setSuccessMsg("Password updated successfully!");
+      setNewPassword("");
       setIsChangingPassword(false);
     }
   };
@@ -68,7 +67,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-mono text-slate-400 mb-1">Access Identifier</label>
+              <label className="block text-xs font-mono text-slate-400 mb-1">
+                Access Identifier
+              </label>
               <input
                 type="text"
                 required
@@ -116,7 +117,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           onClick={() => setIsChangingPassword(!isChangingPassword)}
           className="bg-slate-900/80 backdrop-blur border border-slate-800 text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded-lg font-mono transition-all"
         >
-          {isChangingPassword ? 'Cancel' : 'Change Password'}
+          {isChangingPassword ? "Cancel" : "Change Password"}
         </button>
         <button
           onClick={() => supabase.auth.signOut()}
@@ -128,8 +129,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
       {isChangingPassword && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <form onSubmit={handlePasswordChange} className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-sm w-full space-y-4">
-            <h3 className="text-sm font-semibold text-cyan-400 font-mono">Update Account Password</h3>
+          <form
+            onSubmit={handlePasswordChange}
+            className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-sm w-full space-y-4"
+          >
+            <h3 className="text-sm font-semibold text-cyan-400 font-mono">
+              Update Account Password
+            </h3>
             <input
               type="password"
               required
