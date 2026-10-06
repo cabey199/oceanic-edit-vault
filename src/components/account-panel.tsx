@@ -20,6 +20,10 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [emailBusy, setEmailBusy] = useState(false);
   const [passwordBusy, setPasswordBusy] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"viewer" | "editor">("viewer");
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteFeedback, setInviteFeedback] = useState<Feedback>(null);
   const [feedback, setFeedback] = useState<Feedback>(null);
 
   useEffect(() => {
@@ -77,6 +81,38 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
   const signOut = async () => {
     await supabase.auth.signOut();
     onClose();
+  };
+
+  const inviteUser = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setInviteBusy(true);
+    setInviteFeedback(null);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const response = await fetch("/api/invitations", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(session?.access_token ? { authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+    });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    setInviteBusy(false);
+    if (!response.ok) {
+      setInviteFeedback({
+        kind: "error",
+        message: payload.error ?? "Invitation could not be sent.",
+      });
+      return;
+    }
+    setInviteEmail("");
+    setInviteFeedback({
+      kind: "success",
+      message: "Invitation sent. The recipient can use the magic link to enter the archive.",
+    });
+    onNotice("Invitation sent");
   };
 
   return (
@@ -216,37 +252,51 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                     </div>
                   </div>
                   <span className="border border-primary/30 bg-primary/5 px-2 py-1 font-mono text-[8px] uppercase tracking-[0.14em] text-primary">
-                    Next connection
+                    Magic link
                   </span>
                 </div>
                 <p className="mt-5 max-w-2xl text-sm leading-6 text-muted-foreground">
-                  The invitation surface is ready. The next backend slice will connect it to a
-                  protected server endpoint so editor/viewer invites use Supabase magic links
-                  without exposing an admin key in the browser.
+                  Send a Supabase magic-link invitation without exposing an admin key in the
+                  browser. Only a developer account can send invitations.
                 </p>
-                <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_180px_auto]">
+                <form
+                  onSubmit={inviteUser}
+                  className="mt-5 grid gap-3 sm:grid-cols-[1fr_180px_auto]"
+                >
                   <input
-                    disabled
+                    required
+                    type="email"
                     aria-label="Invite email address"
+                    value={inviteEmail}
+                    onChange={(event) => setInviteEmail(event.target.value)}
                     placeholder="viewer@studio.com"
-                    className="border border-border bg-background/30 px-3 py-2.5 text-sm text-muted-foreground/50"
+                    className="border border-border bg-background/30 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                   />
                   <select
-                    disabled
                     aria-label="Invite role"
-                    className="border border-border bg-background/30 px-3 py-2.5 text-sm text-muted-foreground/50"
+                    value={inviteRole}
+                    onChange={(event) => setInviteRole(event.target.value as "viewer" | "editor")}
+                    className="border border-border bg-background/30 px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none"
                   >
-                    <option>Viewer</option>
-                    <option>Editor</option>
+                    <option value="viewer">Viewer</option>
+                    <option value="editor">Editor</option>
                   </select>
                   <Button
-                    disabled
+                    type="submit"
+                    disabled={inviteBusy || !inviteEmail}
                     variant="outline"
-                    className="border-border text-muted-foreground"
+                    className="border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
                   >
-                    Invite when connected
+                    {inviteBusy ? "Sending…" : "Send invite"}
                   </Button>
-                </div>
+                </form>
+                {inviteFeedback && (
+                  <p
+                    className={`mt-3 text-xs ${inviteFeedback.kind === "success" ? "text-primary" : "text-destructive"}`}
+                  >
+                    {inviteFeedback.message}
+                  </p>
+                )}
               </section>
             </div>
 
