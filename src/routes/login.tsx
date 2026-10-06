@@ -1,25 +1,25 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { motion } from 'framer-motion';
-import { Lock, LogIn, ShieldAlert } from 'lucide-react';
-import { useState } from 'react';
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { motion } from "framer-motion";
+import { Lock, LogIn, ShieldAlert } from "lucide-react";
+import { useState } from "react";
 
-import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/supabase';
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/lib/supabase";
 
-export const Route = createFileRoute('/login')({
+export const Route = createFileRoute("/login")({
   component: LoginComponent,
 });
 
 function LoginComponent() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg('');
+    setErrorMsg("");
     setLoading(true);
 
     try {
@@ -31,10 +31,10 @@ function LoginComponent() {
       if (error) {
         setErrorMsg(error.message);
       } else {
-        navigate({ to: '/' });
+        navigate({ to: "/" });
       }
     } catch (err) {
-      setErrorMsg('Failed to connect to authentication server. Check your Supabase URL.');
+      setErrorMsg("Failed to connect to authentication server. Check your Supabase URL.");
     } finally {
       setLoading(false);
     }
@@ -54,7 +54,9 @@ function LoginComponent() {
           <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary shadow-[0_0_20px_var(--primary-glow)]">
             <Lock className="size-5" />
           </div>
-          <p className="font-mono text-[9px] uppercase tracking-[0.3em] text-primary">Restricted Access</p>
+          <p className="font-mono text-[9px] uppercase tracking-[0.3em] text-primary">
+            Restricted Access
+          </p>
           <h1 className="mt-1 font-display text-3xl italic font-light">chico’s POV</h1>
           <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
             Authenticate to access the vault
@@ -107,7 +109,7 @@ function LoginComponent() {
             className="w-full h-11 border border-primary/40 bg-primary/10 font-mono text-[10px] uppercase tracking-[0.2em] text-primary shadow-[0_0_24px_var(--primary-glow)] hover:bg-primary hover:text-primary-foreground"
           >
             {loading ? (
-              'Authenticating...'
+              "Authenticating..."
             ) : (
               <span className="flex items-center gap-2">
                 Unlock Vault <LogIn className="size-3.5" />
