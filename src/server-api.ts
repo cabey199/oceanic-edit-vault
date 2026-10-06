@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -17,15 +17,36 @@ type RuntimeEnv = {
 type InvitePayload = { email?: unknown; role?: unknown };
 
 function getRuntimeEnv(env: unknown): RuntimeEnv {
-  return (env ?? {}) as RuntimeEnv;
+  const requestEnv = env && typeof env === "object" ? env : undefined;
+  const globalEnv = (globalThis as typeof globalThis & { __env__?: unknown }).__env__;
+  const processEnv = typeof process !== "undefined" ? process.env : undefined;
+  const candidates = [requestEnv, globalEnv, processEnv].filter(
+    (candidate): candidate is Record<string, unknown> =>
+      Boolean(candidate && typeof candidate === "object"),
+  );
+  return Object.assign({}, ...candidates) as RuntimeEnv;
 }
 
 function getSupabaseConfig(env: RuntimeEnv) {
+  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
   return {
-    url: env.SUPABASE_URL ?? env.VITE_SUPABASE_URL,
+    url: env.SUPABASE_URL ?? env.VITE_SUPABASE_URL ?? getSupabaseUrlFromKey(serviceRoleKey),
     anonKey: env.SUPABASE_ANON_KEY ?? env.VITE_SUPABASE_ANON_KEY,
-    serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
+    serviceRoleKey,
   };
+}
+
+function getSupabaseUrlFromKey(serviceRoleKey?: string) {
+  if (!serviceRoleKey) return undefined;
+  try {
+    const payload = serviceRoleKey.split(".")[1];
+    if (!payload) return undefined;
+    const decoded = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    const parsed = JSON.parse(decoded) as { iss?: unknown };
+    return typeof parsed.iss === "string" ? parsed.iss : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function getBearerToken(request: Request) {
@@ -33,23 +54,20 @@ function getBearerToken(request: Request) {
   return value.startsWith("Bearer ") ? value.slice("Bearer ".length) : null;
 }
 
-async function requireDeveloper(request: Request, env: RuntimeEnv) {
+async function requireDeveloper(request: Request, admin: SupabaseClient) {
   const token = getBearerToken(request);
-  const { url, anonKey } = getSupabaseConfig(env);
-  if (!token || !url || !anonKey) return { error: "Authentication is not configured." } as const;
-
-  const client = createClient(url, anonKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-  const { data: userData, error: userError } = await client.auth.getUser(token);
+  if (!token) return { error: "Authentication is not configured." } as const;
+  const { data: userData, error: userError } = await admin.auth.getUser(token);
   if (userError || !userData.user) return { error: "Your session has expired." } as const;
-
-  const { data: isDeveloper, error: roleError } = await client.rpc("is_archive_member", {
-    required_role: "developer",
-  });
-  if (roleError || isDeveloper !== true) return { error: "Developer access is required." } as const;
-  return { client, user: userData.user } as const;
+  const { data: membershipData, error: roleError } = await admin
+    .from("archive_memberships")
+    .select("role")
+    .eq("user_id", userData.user.id)
+    .maybeSingle();
+  const membership = membershipData as { role?: string } | null;
+  if (roleError || membership?.role !== "developer")
+    return { error: "Developer access is required." } as const;
+  return { user: userData.user } as const;
 }
 
 async function inviteUser(request: Request, env: RuntimeEnv) {
@@ -57,7 +75,10 @@ async function inviteUser(request: Request, env: RuntimeEnv) {
   if (!config.serviceRoleKey || !config.url)
     return json({ error: "Invitation service is not configured yet." }, 503);
 
-  const auth = await requireDeveloper(request, env);
+  const admin = createClient(config.url, config.serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const auth = await requireDeveloper(request, admin);
   if ("error" in auth)
     return json({ error: auth.error }, auth.error === "Developer access is required." ? 403 : 401);
 
@@ -73,9 +94,6 @@ async function inviteUser(request: Request, env: RuntimeEnv) {
   if (!email || !email.includes("@") || !role)
     return json({ error: "Provide a valid email and viewer/editor role." }, 400);
 
-  const admin = createClient(config.url, config.serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
   const origin = new URL(request.url).origin;
   const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
     data: { archive_role: role, invited_by: auth.user.id },
