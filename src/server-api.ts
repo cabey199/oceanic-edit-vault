@@ -96,6 +96,15 @@ async function inviteUser(request: Request, env: RuntimeEnv) {
 
 export async function handleApiRequest(request: Request, env: unknown): Promise<Response | null> {
   const url = new URL(request.url);
+  if (url.pathname === "/api/runtime-status" && request.method === "GET") {
+    const runtime = getRuntimeEnv(env);
+    return json({
+      hasSupabaseUrl: Boolean(runtime.SUPABASE_URL ?? runtime.VITE_SUPABASE_URL),
+      hasAnonKey: Boolean(runtime.SUPABASE_ANON_KEY ?? runtime.VITE_SUPABASE_ANON_KEY),
+      hasServiceRoleKey: Boolean(runtime.SUPABASE_SERVICE_ROLE_KEY),
+      visibleBindingNames: Object.keys(runtime).filter((key) => key.includes("SUPABASE")),
+    });
+  }
   if (url.pathname !== "/api/invitations") return null;
   if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
   return inviteUser(request, getRuntimeEnv(env));
