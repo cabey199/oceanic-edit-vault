@@ -9,11 +9,11 @@ The goal is to build a private video archive where the owner can:
 - Change her password.
 - Invite other people as viewers or editors.
 - Upload videos.
-- Keep the untouched original file.
-- Create a smaller playback copy automatically.
-- Play the playback copy in the website.
-- Download the untouched original at full quality.
-- Keep the playback copy at the uploaded video's original resolution; reduce file size through encoding efficiency rather than downscaling dimensions.
+- Compress each upload once using quality-first settings.
+- Store only the quality-controlled compressed file in the main archive.
+- Use that same stored file for website playback and downloads.
+- Preserve the uploaded resolution, orientation, aspect ratio, and approximate duration.
+- Do not force a fixed 20 MB target if doing so would visibly damage the video.
 - Store media using Cloudflare R2 and Backblaze B2.
 - See live storage statistics.
 - Access a hidden developer vault through the Cat backdoor.
@@ -27,12 +27,54 @@ The following safe code-side work has now been completed automatically in this w
 - `pnpm lint` passes with six existing non-blocking Fast Refresh warnings from generated UI primitives.
 - `pnpm test` passes.
 - The Cloudflare production build passes.
-- The video compressor now reads the source and playback dimensions and rejects a playback file if compression changes the width or height.
+- The video compressor reads source and compressed-media dimensions and duration, rejecting output if resolution changes or duration changes beyond tolerance.
 - The guide now explicitly requires file-size compression without resolution downscaling.
 - The direct `/admin` route now checks for an authenticated developer membership before rendering.
 - The Cat-triggered developer dashboard now verifies the developer role before showing its controls.
 
-These changes are local until they are reviewed, committed, and deployed. The storage-provider integration still requires account-specific configuration and credentials that must never be placed in this guide or in the repository.
+The quality safeguards and developer-access hardening have been reviewed, committed, and pushed to GitHub. They still require deployment before the live website uses them. The storage-provider integration requires account-specific configuration and credentials that must never be placed in this guide or in the repository.
+
+### Fastest path to the birthday launch
+
+Use this order. Do not start the next phase until the current phase works. This is the shortest safe route to a giftable version.
+
+#### Phase A — You do these dashboard steps first
+
+- [ ] Confirm the Supabase project and copy its URL and public anon key into the project’s private environment configuration.
+- [ ] Apply the archive database migration.
+- [ ] Confirm your owner account has the `developer` role.
+- [ ] Confirm the Cloudflare Worker reports the Supabase bindings as present.
+- [ ] Create one private R2 bucket.
+- [ ] Create one private B2 bucket or postpone B2 until after the first working R2 upload.
+- [ ] Tell me only “Phase A complete.” Never send secret values.
+
+#### Phase B — I do these code steps
+
+- [ ] Connect the upload drawer to the compressor.
+- [ ] Store only the compressed media file and thumbnail.
+- [ ] Write archive metadata to Supabase.
+- [ ] Connect R2 upload and signed playback/download URLs.
+- [ ] Replace sample gallery items with real records.
+- [ ] Replace the fake player with a real video player.
+- [ ] Add live storage totals.
+
+#### Phase C — We test together
+
+- [ ] Upload a small test video.
+- [ ] Upload a roughly 100 MB test video.
+- [ ] Compare source and compressed playback visually.
+- [ ] Confirm width, height, orientation, duration, and audio are preserved.
+- [ ] Confirm the stored size is smaller without visible damage.
+- [ ] Confirm the same compressed file plays and downloads.
+- [ ] Test owner, viewer, editor, and developer permissions.
+
+#### Phase D — You finish the gift
+
+- [ ] Set the final domain and redirect URLs.
+- [ ] Remove test users and test media.
+- [ ] Create the recipient’s intended invitation.
+- [ ] Open the final URL in a private browser window.
+- [ ] Send the welcome message and final link.
 
 ### Tasks that require your account access
 
@@ -69,7 +111,7 @@ The guide uses small steps. Do not skip a step just because it looks simple. A s
 13. [Build the storage server layer](#13-build-the-storage-server-layer)
 14. [Build the upload pipeline](#14-build-the-upload-pipeline)
 15. [Build real playback](#15-build-real-playback)
-16. [Build original-quality downloads](#16-build-original-quality-downloads)
+16. [Build compressed-file downloads](#16-build-compressed-file-downloads)
 17. [Replace hardcoded gallery data](#17-replace-hardcoded-gallery-data)
 18. [Build live storage statistics](#18-build-live-storage-statistics)
 19. [Finish the account control panel](#19-finish-the-account-control-panel)
@@ -132,13 +174,13 @@ The project already has:
 The project still needs:
 
 - Real video uploads.
-- Real original and playback file storage.
+- Compressed-only media storage.
 - R2 integration.
-- B2 integration.
+- Optional B2 fallback integration.
 - Secure presigned upload URLs.
-- Secure presigned download URLs.
+- Secure presigned playback/download URLs.
 - Real video playback.
-- Real original-quality downloads.
+- Compressed-file downloads.
 - Database-backed gallery items.
 - Live storage statistics.
 - Real member management.
@@ -152,18 +194,34 @@ The project still needs:
 
 ### Important rule
 
-> The original uploaded file must never be overwritten by the compressed playback copy.
+> The main archive stores one quality-controlled compressed file per upload. That same file is used for website playback and downloads.
 
-### The exact quality rule
+### The final media rule
 
-There are two separate requirements:
+For a 100 MB upload:
 
-1. **Download quality:** the downloaded file must be the untouched original upload. If the uploaded file is 100 MB, the download must use that original 100 MB file, subject only to normal transport or browser behavior. Never replace it with the smaller playback file.
-2. **Website playback:** the playback copy may be smaller, for example roughly 20 MB instead of 100 MB, but it must keep the original video's pixel dimensions. If the uploaded video is 1920×1080, the playback video must also be 1920×1080. If it is 1080×1920, the playback video must also be 1080×1920.
+```text
+Upload:              100 MB
+Stored:              one compressed file
+Possible stored size: 20 MB, 35 MB, 50 MB, or another quality-safe size
+Website playback:    the stored compressed file
+Download:            the same stored compressed file
+```
 
-This means **compressing file size is not the same as lowering resolution**. The playback encoder may reduce bitrate and remove unnecessary encoding overhead, but it must not add a scale filter or change width/height unless the owner explicitly chooses a separate lower-resolution option later.
+The original 100 MB file is not retained in the compressed-only design. Therefore the download is not an exact reconstruction of the original; it is the same high-quality compressed file used for playback.
 
-The playback copy is allowed to be somewhat more compressed than the original because it is used for streaming, but it must remain visually clean. Use a quality-based encoder setting, preserve the original dimensions, and test dark scenes, text, fast movement, gradients, and audio synchronization. If a 100 MB upload becomes 20 MB but looks visibly blurry or blocky, the quality target is too aggressive and must be adjusted.
+Compression must preserve:
+
+- Width and height.
+- Orientation.
+- Aspect ratio.
+- Approximately the same duration.
+- Audio/video synchronization.
+- Audio unless the source genuinely has no audio.
+
+Compression must not use a fixed size target when that would visibly damage the video. A 100 MB video may become 20 MB, but another may need 35 MB or 50 MB to remain good. Quality is more important than hitting a number.
+
+A phone may make minor artifacts less noticeable because its display is smaller, but we still judge the output on a desktop-sized screen before launch. The screen does not restore information removed by lossy compression.
 
 ### Product decision: compressed-only, quality-first storage
 
@@ -188,11 +246,10 @@ The upload must be rejected or retried if any of these occur:
 
 This model intentionally prioritizes a video that still looks relatively like the upload over a guaranteed storage ratio. If a particular source cannot be reduced aggressively without visible damage, it must remain larger rather than being forced into an arbitrary 20 MB limit.
 
-The system will store at least three different media types:
+The system will store two media types:
 
-1. **Original** — untouched, full-quality download file.
-2. **Playback** — optimized copy used by the website player.
-3. **Thumbnail** — small preview image used by the gallery.
+1. **Compressed media** — the single quality-controlled file used for both playback and download.
+2. **Thumbnail** — a small preview image used by the gallery.
 
 ---
 
@@ -224,30 +281,31 @@ Supabase
   v
 R2 and B2
   |
-  | Original file
-  | Playback file
+  | Compressed media file
   | Thumbnail
   v
 Browser player
   |
-  | Streams playback copy
-  | Downloads original through short-lived URL
+  | Streams compressed media through a short-lived URL
+  | Downloads the same compressed media through a short-lived URL
 ```
 
 ### Upload sequence
 
 1. The user selects a video.
-2. The browser keeps the original file in memory.
-3. FFmpeg creates a playback copy locally.
-4. The browser creates a thumbnail.
-5. The browser asks the Worker for upload instructions.
-6. The Worker verifies the user session.
-7. The Worker creates an `archive_items` record.
-8. The Worker returns short-lived upload URLs.
-9. The browser uploads the original, playback copy, and thumbnail.
-10. The browser tells the Worker that the upload finished.
-11. The Worker verifies the files and marks the item as `ready`.
-12. The gallery refreshes and shows the new edit.
+2. The browser keeps the selected file temporarily in memory.
+3. FFmpeg creates one quality-controlled compressed file locally.
+4. The browser verifies dimensions and duration.
+5. The browser creates a thumbnail.
+6. The browser asks the Worker for upload instructions.
+7. The Worker verifies the user session.
+8. The Worker creates an `archive_items` record.
+9. The Worker returns a short-lived upload URL.
+10. The browser uploads the compressed file and thumbnail.
+11. The browser tells the Worker that the upload finished.
+12. The Worker verifies the files and marks the item as `ready`.
+13. The Worker verifies the compressed file and thumbnail.
+14. The gallery refreshes and shows the new edit.
 
 ### Playback sequence
 
@@ -255,15 +313,15 @@ Browser player
 2. The browser asks the Worker for a playback URL.
 3. The Worker checks that the user can view the item.
 4. The Worker returns a short-lived URL for the playback object.
-5. The browser streams the playback object.
+5. The browser streams the compressed media object.
 
 ### Download sequence
 
-1. The user clicks Download Original.
+1. The user clicks Download.
 2. The browser asks the Worker for a download URL.
 3. The Worker checks that the user can view the item.
-4. The Worker returns a short-lived URL for the original object.
-5. The browser downloads the untouched original.
+4. The Worker returns a short-lived URL for the compressed media object.
+5. The browser downloads the same file used for playback.
 
 ---
 
@@ -300,8 +358,7 @@ Backblaze B2 is another object-storage provider. It can be used as a second stor
 Object storage stores files using keys such as:
 
 ```text
-archive/{ownerId}/{archiveItemId}/original/source-video.mov
-archive/{ownerId}/{archiveItemId}/playback/source-video.playback.mp4
+archive/{ownerId}/{archiveItemId}/media/source-video.mp4
 archive/{ownerId}/{archiveItemId}/thumbnail/source-video.jpg
 ```
 
@@ -776,7 +833,7 @@ Use a unique name if Cloudflare requires it.
 
 ### 10.2 Do not make the bucket public by default
 
-The website should use short-lived signed URLs. Do not expose original private videos through a public bucket unless there is a clear product reason.
+The website should use short-lived signed URLs. Do not expose private compressed media through a public bucket unless there is a clear product reason.
 
 ### 10.3 Create an R2 API token
 
@@ -846,29 +903,17 @@ Never commit these to GitHub.
 
 ### 11.4 Decide how B2 participates
 
-Choose one of these strategies:
+Use this strategy for the birthday launch:
 
-#### Strategy A: Primary/fallback
+#### Strategy A: R2 first, B2 fallback
 
-- Upload to R2 first.
-- If R2 is unavailable, upload to B2.
-- Store the selected provider in `archive_media_objects.provider`.
+- Upload the compressed media file to R2 first.
+- Upload the thumbnail to R2.
+- If R2 is unavailable, use B2 for the compressed media file and thumbnail.
+- Store the actual provider in `archive_media_objects.provider`.
+- Do not mirror files during the rushed first launch; mirroring doubles storage and testing complexity.
 
-#### Strategy B: Mirrored copies
-
-- Upload the same object to R2 and B2.
-- Store two media-object rows for the same logical file.
-- Use one provider for playback and retain the other as redundancy.
-
-#### Strategy C: Split media types
-
-- Store originals in B2.
-- Store playback copies in R2.
-- Store thumbnails in R2.
-
-For the first production version, **primary/fallback** is usually the least complicated. If redundancy is a business requirement, use mirrored copies and explicitly test reconciliation and deletion behavior.
-
-Do not silently claim that a file is duplicated unless it really exists in both providers.
+B2 can be added after the first working launch. If the birthday deadline is very close, launch with R2 only and add B2 fallback in a follow-up checkpoint.
 
 ---
 
@@ -925,8 +970,7 @@ It should contain:
 Recommended media kinds:
 
 ```text
-original
-playback
+compressed
 thumbnail
 ```
 
@@ -955,8 +999,7 @@ archive_item_id = item-456
 Use keys such as:
 
 ```text
-archive/user-123/item-456/original/source.mov
-archive/user-123/item-456/playback/source.playback.mp4
+archive/user-123/item-456/media/source.compressed.mp4
 archive/user-123/item-456/thumbnail/source.jpg
 ```
 
@@ -1037,7 +1080,7 @@ Exact route syntax depends on the server framework. Keep the endpoint names cons
 Use short expiration periods:
 
 - Upload URL: enough time for the expected upload, commonly several minutes.
-- Playback URL: a short period appropriate for streaming.
+- Playback/download URL: a short period appropriate for streaming and downloading.
 - Download URL: a short period appropriate for a user download.
 
 Do not make URLs permanent unless the product explicitly requires it.
@@ -1079,31 +1122,31 @@ Never rely only on the browser's file type value.
 
 ### 14.3 Compress locally
 
-The current FFmpeg engine creates a playback copy. Keep the original `File` untouched.
+The current FFmpeg engine creates the single stored compressed media file. Keep the selected source `File` only in temporary browser memory; do not upload it.
 
 The normal playback encode must preserve the uploaded video's pixel dimensions. Do not add an FFmpeg scaling step such as `-vf scale=...`, `-s ...`, or a width/height limit. If the source is 1920×1080, the playback copy must remain 1920×1080. If the source is 1080×1920, the playback copy must remain 1080×1920.
 
-The goal is to reduce **file size**, not resolution. A 100 MB upload might produce a playback copy around 20 MB, give or take, depending on duration, motion, audio, source codec, and the quality setting. The original 100 MB file must still be stored separately and must remain the file used for Download Original.
+The goal is to reduce **file size**, not resolution. A 100 MB upload might produce a stored compressed file around 20 MB, give or take, depending on duration, motion, audio, source codec, and the quality setting. The compressed file is the only media file uploaded to storage and is used for both playback and download.
 
 The UI should display:
 
 ```text
-Original: 84.2 MB
-Playback: 18.4 MB
+Source: 84.2 MB
+Stored compressed file: 18.4 MB
 Saved: 78%
 ```
 
 The current code uses H.264 for playback. If the UI says H.265, change the UI or change the encoder. Do not display a codec that is not actually used.
 
-After encoding, compare source and playback metadata. If the dimensions changed, treat the encode as a failure or flag it for review. A smaller number of megabytes is expected; a smaller width or height is not expected for the normal playback path.
+After encoding, compare source and compressed-media metadata. If the dimensions changed, treat the encode as a failure or flag it for review. A smaller number of megabytes is expected; a smaller width or height is not expected for the normal playback path.
 
 ### 14.4 Extract metadata
 
 Extract or calculate:
 
-- Original filename.
-- Original byte size.
-- Playback byte size.
+- Source filename.
+- Source byte size.
+- Stored compressed byte size.
 - MIME type.
 - Width.
 - Height.
@@ -1118,7 +1161,7 @@ Use a browser `<video>` element for basic duration and dimensions. Use a reliabl
 
 Create a small thumbnail from a representative video frame:
 
-1. Load the playback video into a hidden video element.
+1. Load the compressed video into a hidden video element.
 2. Seek to a safe timestamp, such as one second or 10% of the duration.
 3. Draw the frame to a canvas.
 4. Export it as JPEG or WebP.
@@ -1142,18 +1185,18 @@ The Worker should:
 
 ### 14.7 Upload the files
 
-Upload separately:
+Upload only:
 
-- Original file.
-- Playback blob.
+- Stored compressed media blob.
 - Thumbnail blob.
+
+The selected source file is not uploaded. It is used only while the browser creates the compressed media blob.
 
 Show individual progress where possible:
 
 ```text
-Original      40%
-Playback      85%
-Thumbnail     Complete
+Compressed media  85%
+Thumbnail         Complete
 ```
 
 ### 14.8 Complete the upload
@@ -1212,11 +1255,11 @@ Example conceptual structure:
 />
 ```
 
-Do not use the original file for normal playback. The original is reserved for full-quality download.
+Use the stored compressed media file for normal playback and downloads. There is no separate original-download file in the compressed-only design.
 
 ### Playback quality
 
-“Playback quality” means the playback derivative keeps the uploaded resolution and remains visually appropriate without unnecessary degradation. It does not mean the original must be streamed for every viewing session.
+“Playback quality” means the stored compressed file keeps the uploaded resolution and remains visually appropriate without unnecessary degradation. The same stored file is also the download file.
 
 The playback copy must preserve:
 
@@ -1239,17 +1282,17 @@ Choose compression settings deliberately and test:
 
 ---
 
-## 16. Build original-quality downloads
+## 16. Build compressed-file downloads
 
 The current Download button only displays a notice. Replace it with a real download flow.
 
 ### Download flow
 
-1. User clicks Download Original.
+1. User clicks Download.
 2. Browser requests `/api/archive-items/:id/download-url`.
 3. Worker authenticates the user.
 4. Worker checks viewer/editor/developer access.
-5. Worker finds the `original` media object.
+5. Worker finds the compressed media object.
 6. Worker creates a short-lived signed URL.
 7. Browser navigates to the URL or uses an anchor download.
 
@@ -1257,7 +1300,7 @@ Use a safe download filename generated from:
 
 - The archive title.
 - A safe extension.
-- The original content type.
+- The compressed media content type.
 
 Do not trust a raw user-provided filename in an HTTP header without sanitizing it.
 
@@ -1267,14 +1310,14 @@ Test:
 
 - A small MP4.
 - A large MP4.
-- A MOV original.
+- A MOV source that becomes a playable compressed MP4.
 - A vertical video.
 - A filename with spaces.
 - A filename with special characters.
 - An expired URL.
 - A user who should not have access.
 
-The downloaded file must match the original file's byte size and, where practical, checksum.
+The downloaded file must match the stored compressed media object's byte size and content type. It is not expected to match the source upload's original byte size.
 
 ---
 
@@ -1287,12 +1330,11 @@ The current gallery data is defined in `src/routes/index.tsx` as a local `edits`
 The archive query should:
 
 - Load only items the current user can view.
-- Exclude failed items unless an admin is inspecting them.
+- Exclude failed items unless a developer is inspecting them.
 - Exclude archived items from the normal gallery.
 - Order by newest first.
 - Include thumbnail metadata.
-- Include playback metadata.
-- Include original metadata needed for download.
+- Include compressed media metadata needed for playback and download.
 
 ### Loading states
 
@@ -1332,8 +1374,7 @@ In the owner control panel:
 - Total storage used.
 - Total storage available according to the selected provider plan.
 - Number of archive items.
-- Original storage used.
-- Playback storage used.
+- Compressed media storage used.
 - Thumbnail storage used.
 - R2 usage.
 - B2 usage.
@@ -1435,9 +1476,8 @@ Add a calm, readable storage card:
 Archive storage
 6.4 GB used of 10 GB
 
-Originals       4.7 GB
-Playback        1.6 GB
-Thumbnails      0.1 GB
+Compressed media  6.3 GB
+Thumbnails         0.1 GB
 R2              5.1 GB
 B2              1.3 GB
 ```
@@ -1557,8 +1597,7 @@ idle
 preparing
 compressing
 creating-record
-uploading-original
-uploading-playback
+uploading-compressed-media
 uploading-thumbnail
 verifying
 ready
@@ -1678,13 +1717,14 @@ Test:
 - B2 upload.
 - R2 fallback.
 - B2 fallback.
-- Original metadata.
-- Playback metadata.
+- Source metadata.
+- Compressed media metadata.
 - Thumbnail metadata.
-- A roughly 100 MB test upload whose playback copy is smaller but has exactly the same width and height as the original.
-- A vertical test upload whose playback copy remains vertical at the original dimensions.
-- A landscape test upload whose playback copy remains landscape at the original dimensions.
-- A downloaded original whose byte size and quality match the untouched source file.
+- A roughly 100 MB test upload whose stored compressed file is smaller but has exactly the same width and height as the source.
+- A vertical test upload whose stored compressed file remains vertical at the source dimensions.
+- A landscape test upload whose stored compressed file remains landscape at the source dimensions.
+- A downloaded file whose byte size and content match the stored compressed media file.
+- A desktop visual comparison confirming the compressed file is not visibly botched.
 - Provider health status.
 - Live byte counts.
 
@@ -1884,16 +1924,16 @@ Perform this entire test from a clean browser or private/incognito window.
 
 1. Open the upload drawer.
 2. Choose a test video.
-3. Confirm the original remains untouched.
+3. Confirm the source file is used only temporarily and is not uploaded to storage.
 4. Confirm compression progress appears.
 5. Confirm playback size is shown.
 6. Confirm the upload reaches `ready`.
 7. Confirm the item appears in the gallery.
 8. Open it.
 9. Confirm real video playback works.
-10. Download the original.
+10. Download the compressed file.
 11. Confirm the downloaded file opens.
-12. Confirm the downloaded file matches the original quality and expected size.
+12. Confirm the downloaded file matches the stored playback file and is not visibly botched.
 
 ### Viewer test
 
@@ -1999,7 +2039,7 @@ The playback object may have:
 
 ### Download fails but playback works
 
-The original media object may be:
+The compressed media object may be:
 
 - Missing.
 - Stored under the wrong key.
@@ -2128,11 +2168,13 @@ curl -I https://oceanic-edit-vault.calebasefa455.workers.dev/
 - [ ] Developer role works.
 - [ ] Upload works.
 - [ ] Compression works.
-- [ ] Original is preserved.
-- [ ] Playback derivative is created.
+- [ ] Source is compressed locally.
+- [ ] Only compressed media and thumbnail are stored.
+- [ ] No untouched source is uploaded to storage.
+- [ ] Compressed media keeps dimensions and duration.
 - [ ] Thumbnail is created.
 - [ ] Real playback works.
-- [ ] Original-quality download works.
+- [ ] Compressed-file download works.
 - [ ] Gallery uses real database records.
 - [ ] Favorites persist if required.
 - [ ] Storage metrics are live.
@@ -2183,9 +2225,67 @@ curl -I https://oceanic-edit-vault.calebasefa455.workers.dev/
 
 ---
 
+## Birthday-week operating procedure
+
+When time is limited, use this exact sequence and stop after each checkpoint.
+
+### Checkpoint 1 — You prepare accounts
+
+1. Open Supabase.
+2. Confirm the correct project.
+3. Apply the migration from `supabase/migrations/20261006000000_archive_foundation.sql`.
+4. Confirm your owner email exists under Authentication.
+5. Add or update your owner membership to `developer`.
+6. Open Cloudflare Workers and confirm the three Supabase bindings.
+7. Create one private R2 bucket.
+8. Do not send secrets in chat.
+9. Reply: **Phase 1 complete**.
+
+### Checkpoint 2 — We make one real upload work
+
+The first target is not every feature. The first target is one complete happy path:
+
+```text
+login → select video → compress → upload compressed file → save metadata
+→ show gallery item → play video → download compressed file
+```
+
+Do not add B2 fallback, advanced member management, or visual polish before this path works.
+
+### Checkpoint 3 — We protect the happy path
+
+1. Confirm only authenticated users can access media.
+2. Confirm viewer/editor/developer roles.
+3. Confirm signed URLs expire.
+4. Confirm a failed upload is not shown as ready.
+5. Confirm the source file is not stored.
+6. Confirm the compressed output keeps dimensions and duration.
+
+### Checkpoint 4 — We make it gift-ready
+
+1. Test on desktop.
+2. Test on a phone.
+3. Remove fake gallery data.
+4. Remove test media and users.
+5. Configure the final domain.
+6. Confirm login and invite links use the final domain.
+7. Send the invitation only after the clean-browser test passes.
+
+### What to send me when you are ready
+
+Send only status updates, never credentials:
+
+```text
+Phase 1 complete — Supabase migration, developer role, Worker bindings, and private R2 bucket are ready.
+```
+
+Then I can continue with the next code phase immediately.
+
+---
+
 ## Definition of done
 
-The website is ready to be gifted when a new person can open the final URL, receive or use an invitation, sign in, understand the interface without assistance, upload or view the appropriate media, play a real video, download the untouched original, manage the intended account settings, and never encounter a placeholder metric or fake action.
+The website is ready to be gifted when a new person can open the final URL, receive or use an invitation, sign in, understand the interface without assistance, upload or view the appropriate media, play a real video, download the same quality-controlled compressed file, manage the intended account settings, and never encounter a placeholder metric or fake action.
 
 The final standard is:
 
