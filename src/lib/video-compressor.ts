@@ -57,11 +57,6 @@ function readVideoMetadata(
 async function getFFmpeg() {
   if (!ffmpegPromise) {
     ffmpegPromise = (async () => {
-      if (typeof SharedArrayBuffer === "undefined") {
-        throw new Error(
-          "This browser is not ready for local video compression. Refresh the page or use the latest Chrome, Edge, Firefox, or Safari.",
-        );
-      }
       const { FFmpeg } = await import("@ffmpeg/ffmpeg");
       const ffmpeg = new FFmpeg();
       activeFFmpeg = ffmpeg;
