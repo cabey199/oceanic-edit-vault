@@ -1,8 +1,4 @@
 /*
-  Cross-origin isolation is required by the browser-side FFmpeg WASM worker.
-  The compression engine fetches its public core files and converts them to
-  same-origin blob URLs before execution.
-*/
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: require-corp
   Cross-Origin-Resource-Policy: cross-origin
