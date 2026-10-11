@@ -64,6 +64,7 @@ async function getFFmpeg() {
       await ffmpeg.load({
         coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, "text/javascript"),
         wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, "application/wasm"),
+        workerURL: await toBlobURL(`${base}/ffmpeg-core.worker.js`, "text/javascript"),
       });
       return ffmpeg;
     })().catch((error) => {

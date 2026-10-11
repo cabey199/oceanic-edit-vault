@@ -96,7 +96,7 @@ export function UploadDrawer({
       setError(
         compressionError instanceof Error
           ? compressionError.message
-          : "Compression failed. Refresh the page and try again.",
+          : `Compression failed: ${String(compressionError)}. Refresh the page and try again.`,
       );
     }
   };
