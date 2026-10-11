@@ -57,6 +57,11 @@ function readVideoMetadata(
 async function getFFmpeg() {
   if (!ffmpegPromise) {
     ffmpegPromise = (async () => {
+      if (typeof SharedArrayBuffer === "undefined") {
+        throw new Error(
+          "This browser is not ready for local video compression. Refresh the page or use the latest Chrome, Edge, Firefox, or Safari.",
+        );
+      }
       const { FFmpeg } = await import("@ffmpeg/ffmpeg");
       const ffmpeg = new FFmpeg();
       activeFFmpeg = ffmpeg;
@@ -66,7 +71,11 @@ async function getFFmpeg() {
         wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, "application/wasm"),
       });
       return ffmpeg;
-    })();
+    })().catch((error) => {
+      ffmpegPromise = undefined;
+      activeFFmpeg = undefined;
+      throw error;
+    });
   }
   return ffmpegPromise;
 }
@@ -82,6 +91,7 @@ export async function compressVideo(
   onProgress?: (progress: CompressionProgress) => void,
 ): Promise<CompressionResult> {
   const sourceMetadata = await readVideoMetadata(file);
+  onProgress?.({ phase: "loading", progress: 0.02 });
   const ffmpeg = await getFFmpeg();
   onProgress?.({ phase: "compressing", progress: 0.08 });
 

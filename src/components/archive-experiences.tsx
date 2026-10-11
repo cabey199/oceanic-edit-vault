@@ -63,6 +63,9 @@ export function UploadDrawer({
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [phase, setPhase] = useState<UploadPhase>("idle");
+  const [compressionPhase, setCompressionPhase] = useState<
+    "loading" | "compressing" | "finalizing"
+  >("loading");
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<CompressionResult | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -75,7 +78,10 @@ export function UploadDrawer({
     setProgress(0.02);
     setPhase("compressing");
     try {
-      const compressed = await compressVideo(selectedFile, ({ progress }) => setProgress(progress));
+      const compressed = await compressVideo(selectedFile, ({ phase: currentPhase, progress }) => {
+        setCompressionPhase(currentPhase);
+        setProgress(progress);
+      });
       setResult(compressed);
       setProgress(1);
       onCompressed?.(compressed, selectedFile);
@@ -90,7 +96,7 @@ export function UploadDrawer({
       setError(
         compressionError instanceof Error
           ? compressionError.message
-          : "Compression failed. Try another video.",
+          : "Compression failed. Refresh the page and try again.",
       );
     }
   };
@@ -210,7 +216,11 @@ export function UploadDrawer({
                       <p className="truncate text-sm font-medium">{file.name}</p>
                       <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.14em] text-primary">
                         {phase === "compressing"
-                          ? "Compressing locally with H.264"
+                          ? compressionPhase === "loading"
+                            ? "Loading secure compression engine"
+                            : compressionPhase === "finalizing"
+                              ? "Finalizing quality checks"
+                              : "Compressing locally with H.264"
                           : phase === "uploading"
                             ? "Uploading compressed media securely"
                             : phase === "ready"
@@ -245,7 +255,11 @@ export function UploadDrawer({
                   <div className="mt-2 flex justify-between font-mono text-[9px] text-muted-foreground">
                     <span>
                       {phase === "compressing"
-                        ? "Preparing quality-controlled media"
+                        ? compressionPhase === "loading"
+                          ? "Preparing the browser compression engine — first load may take a few minutes"
+                          : compressionPhase === "finalizing"
+                            ? "Checking resolution, duration, and audio"
+                            : "Preparing quality-controlled media"
                         : phase === "uploading"
                           ? "Sending compressed media to private storage"
                           : phase === "ready"
