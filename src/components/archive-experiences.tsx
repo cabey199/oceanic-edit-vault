@@ -294,6 +294,19 @@ export function DeveloperDashboard({
 }) {
   const [compress, setCompress] = useState(true);
   const [access, setAccess] = useState<"checking" | "granted" | "denied">("checking");
+  const [stats, setStats] = useState<{
+    totalBytes: number;
+    compressedBytes: number;
+    thumbnailBytes: number;
+    r2Bytes: number;
+    b2Bytes: number;
+    itemCount: number;
+  } | null>(null);
+
+  const formatMetricBytes = (bytes: number) =>
+    bytes < 1024 * 1024
+      ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+      : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 
   useEffect(() => {
     let active = true;
@@ -311,6 +324,15 @@ export function DeveloperDashboard({
         .eq("user_id", session.user.id)
         .maybeSingle();
       if (active) setAccess(!error && membership?.role === "developer" ? "granted" : "denied");
+      if (!error && membership?.role === "developer") {
+        const response = await fetch("/api/archive-stats", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (response.ok) {
+          const payload = (await response.json()) as typeof stats;
+          if (active) setStats(payload);
+        }
+      }
     })();
     return () => {
       active = false;
@@ -375,9 +397,8 @@ export function DeveloperDashboard({
         <Metric
           icon={HardDrive}
           label="Storage capacity"
-          value="12.4 GB / 20 GB"
-          detail="7.6 GB free"
-          progress={62}
+          value={stats ? formatMetricBytes(stats.totalBytes) : "Loading…"}
+          detail="Tracked compressed media and thumbnails"
         />
         <Metric
           icon={Cloud}
@@ -385,7 +406,16 @@ export function DeveloperDashboard({
           value="Cloudflare R2"
           detail="Primary region · Auto"
         />
-        <Metric icon={Video} label="Total edits stored" value="142" detail="18 added this month" />
+        <Metric
+          icon={Video}
+          label="Total edits stored"
+          value={stats ? String(stats.itemCount) : "Loading…"}
+          detail={
+            stats
+              ? `${formatMetricBytes(stats.compressedBytes)} compressed media`
+              : "Reading archive"
+          }
+        />
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <section className="glass-card p-6">
@@ -416,9 +446,15 @@ export function DeveloperDashboard({
             </Button>
           </div>
           <div className="mt-8 grid grid-cols-3 gap-3 border-t border-border pt-6">
-            <SmallStat label="Average saving" value="73%" />
-            <SmallStat label="Quality target" value="4K" />
-            <SmallStat label="Codec" value="H.265" />
+            <SmallStat
+              label="Compressed media"
+              value={stats ? formatMetricBytes(stats.compressedBytes) : "—"}
+            />
+            <SmallStat
+              label="Thumbnails"
+              value={stats ? formatMetricBytes(stats.thumbnailBytes) : "—"}
+            />
+            <SmallStat label="R2 usage" value={stats ? formatMetricBytes(stats.r2Bytes) : "—"} />
           </div>
         </section>
         <section className="glass-card p-6">

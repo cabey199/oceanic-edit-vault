@@ -190,6 +190,44 @@ async function listArchiveItems(request: Request, env: RuntimeEnv) {
   return json({ items });
 }
 
+async function getArchiveStats(request: Request, env: RuntimeEnv) {
+  const admin = createAdmin(env);
+  if (!admin) return json({ error: "Archive service is not configured yet." }, 503);
+  const auth = await requireViewer(request, admin);
+  if ("error" in auth) return json({ error: auth.error }, 401);
+  const { data, error } = await admin
+    .from("archive_media_objects")
+    .select("kind,provider,byte_size,archive_items!inner(owner_id,status,archived)")
+    .eq("archive_items.owner_id", auth.user.id)
+    .eq("archive_items.archived", false)
+    .neq("archive_items.status", "failed");
+  if (error) return json({ error: error.message }, 500);
+
+  const rows = (data ?? []) as Array<{
+    kind: "original" | "playback" | "thumbnail";
+    provider: "r2" | "b2";
+    byte_size: number;
+  }>;
+  const stats = rows.reduce(
+    (result, row) => {
+      result.totalBytes += Number(row.byte_size) || 0;
+      result[`${row.provider}Bytes`] += Number(row.byte_size) || 0;
+      if (row.kind === "thumbnail") result.thumbnailBytes += Number(row.byte_size) || 0;
+      else result.compressedBytes += Number(row.byte_size) || 0;
+      return result;
+    },
+    { totalBytes: 0, compressedBytes: 0, thumbnailBytes: 0, r2Bytes: 0, b2Bytes: 0 },
+  );
+  const { count, error: countError } = await admin
+    .from("archive_items")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_id", auth.user.id)
+    .eq("archived", false)
+    .neq("status", "failed");
+  if (countError) return json({ error: countError.message }, 500);
+  return json({ ...stats, itemCount: count ?? 0 });
+}
+
 async function createArchiveItem(request: Request, env: RuntimeEnv) {
   const admin = createAdmin(env);
   const bucket = env.MEDIA_BUCKET;
@@ -374,6 +412,8 @@ export async function handleApiRequest(request: Request, env: unknown): Promise<
     if (request.method === "POST") return createArchiveItem(request, runtime);
     return json({ error: "Method not allowed." }, 405);
   }
+  if (url.pathname === "/api/archive-stats" && request.method === "GET")
+    return getArchiveStats(request, runtime);
   const mediaMatch = url.pathname.match(
     /^\/api\/archive-items\/([^/]+)\/media\/(playback|thumbnail)$/,
   );
