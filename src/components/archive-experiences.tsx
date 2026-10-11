@@ -43,16 +43,23 @@ type UploadDrawerProps = {
   onClose: () => void;
   onComplete: (message: string) => void;
   onCompressed?: (result: CompressionResult, original: File) => void;
+  onUpload?: (result: CompressionResult, original: File) => Promise<void>;
 };
 
-type UploadPhase = "idle" | "compressing" | "ready" | "error";
+type UploadPhase = "idle" | "compressing" | "uploading" | "ready" | "error";
 
 const formatBytes = (bytes: number) => {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-export function UploadDrawer({ open, onClose, onComplete, onCompressed }: UploadDrawerProps) {
+export function UploadDrawer({
+  open,
+  onClose,
+  onComplete,
+  onCompressed,
+  onUpload,
+}: UploadDrawerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [phase, setPhase] = useState<UploadPhase>("idle");
@@ -71,9 +78,13 @@ export function UploadDrawer({ open, onClose, onComplete, onCompressed }: Upload
       const compressed = await compressVideo(selectedFile, ({ progress }) => setProgress(progress));
       setResult(compressed);
       setProgress(1);
-      setPhase("ready");
       onCompressed?.(compressed, selectedFile);
-      onComplete(`${selectedFile.name} compressed and ready for upload`);
+      if (onUpload) {
+        setPhase("uploading");
+        await onUpload(compressed, selectedFile);
+      }
+      setPhase("ready");
+      onComplete(`${selectedFile.name} compressed and securely stored`);
     } catch (compressionError) {
       setPhase("error");
       setError(
@@ -136,7 +147,7 @@ export function UploadDrawer({ open, onClose, onComplete, onCompressed }: Upload
                 </p>
                 <h2 className="mt-3 font-display text-4xl">Upload an edit</h2>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  The original stays untouched. A playback copy is prepared locally.
+                  Compressed locally for quality-first, space-saving storage.
                 </p>
               </div>
               <Button
@@ -200,9 +211,11 @@ export function UploadDrawer({ open, onClose, onComplete, onCompressed }: Upload
                       <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.14em] text-primary">
                         {phase === "compressing"
                           ? "Compressing locally with H.264"
-                          : phase === "ready"
-                            ? "Playback copy ready · original preserved"
-                            : "Compression failed"}
+                          : phase === "uploading"
+                            ? "Uploading compressed media securely"
+                            : phase === "ready"
+                              ? "Compressed media stored · ready to play"
+                              : "Compression failed"}
                       </p>
                     </div>
                     {phase === "ready" && <Check className="size-5 text-primary" />}
@@ -232,15 +245,17 @@ export function UploadDrawer({ open, onClose, onComplete, onCompressed }: Upload
                   <div className="mt-2 flex justify-between font-mono text-[9px] text-muted-foreground">
                     <span>
                       {phase === "compressing"
-                        ? "Preparing instant playback"
-                        : phase === "ready"
-                          ? "Ready for secure upload"
-                          : error}
+                        ? "Preparing quality-controlled media"
+                        : phase === "uploading"
+                          ? "Sending compressed media to private storage"
+                          : phase === "ready"
+                            ? "Stored and ready"
+                            : error}
                     </span>
                     <span>{Math.round(progress * 100)}%</span>
                   </div>
                   <div className="mt-5 flex gap-2">
-                    {phase === "compressing" && (
+                    {(phase === "compressing" || phase === "uploading") && (
                       <Button variant="ghost" onClick={reset} className="text-muted-foreground">
                         Cancel
                       </Button>
@@ -258,8 +273,8 @@ export function UploadDrawer({ open, onClose, onComplete, onCompressed }: Upload
                 </motion.div>
               ) : (
                 <div className="mt-auto flex items-center gap-3 border-t border-border pt-6 text-xs text-muted-foreground">
-                  <ShieldCheck className="size-4 text-primary" /> Private local pre-processing ·
-                  original quality retained
+                  <ShieldCheck className="size-4 text-primary" /> Private local compression ·
+                  compressed media only is stored
                 </div>
               )}
             </AnimatePresence>
@@ -569,13 +584,26 @@ export function CinematicPlayer({
             onClick={(event) => event.stopPropagation()}
             className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-background"
           >
-            <img
-              src={edit.image}
-              alt={`${edit.title} cinematic preview`}
-              className={`h-full w-full object-contain transition duration-700 ${playing ? "scale-[1.015]" : "scale-100"}`}
-            />
+            {edit.videoUrl ? (
+              <video
+                src={edit.videoUrl}
+                poster={edit.image}
+                controls
+                playsInline
+                preload="metadata"
+                className="h-full w-full object-contain"
+                onPlay={() => setPlaying(true)}
+                onPause={() => setPlaying(false)}
+              />
+            ) : (
+              <img
+                src={edit.image}
+                alt={`${edit.title} cinematic preview`}
+                className={`h-full w-full object-contain transition duration-700 ${playing ? "scale-[1.015]" : "scale-100"}`}
+              />
+            )}
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,transparent_62%,var(--background))]" />
-            {!playing && (
+            {!edit.videoUrl && !playing && (
               <Button
                 aria-label={`Play ${edit.title}`}
                 size="icon"
@@ -613,7 +641,15 @@ export function CinematicPlayer({
                   <p className="text-xs text-muted-foreground">{edit.note}</p>
                 </div>
                 <Button
-                  onClick={() => onSave(edit.title)}
+                  onClick={() => {
+                    if (edit.downloadUrl) {
+                      const anchor = document.createElement("a");
+                      anchor.href = edit.downloadUrl;
+                      anchor.download = `${edit.title.replace(/[^a-z0-9_-]+/gi, "-")}.mp4`;
+                      anchor.click();
+                    }
+                    onSave(edit.title);
+                  }}
                   className="w-full bg-primary text-primary-foreground shadow-[0_0_25px_var(--primary-glow)] hover:bg-primary/90 sm:w-auto"
                 >
                   <ImageDown /> Save to Phone Camera Roll

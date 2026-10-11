@@ -4,5 +4,11 @@
     "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1...",
     "VITE_SUPABASE_URL": "https://uooxubwuvkifgieqbksv.supabase.co"
   },
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_BUCKET",
+      "bucket_name": "oceanic-edit-vault-media"
+    }
+  ]
   // ...
 }

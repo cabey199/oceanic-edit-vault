@@ -41,6 +41,48 @@ import underwaterDream from "@/assets/underwater-dream.jpg";
 type Category = "All Edits" | "TikTok / Reels" | "Landscape" | "Favorites";
 type OceanTheme = "calm" | "night";
 
+function formatBytes(bytes: number) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDuration(seconds: number) {
+  const total = Math.max(0, Math.round(seconds));
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+async function createThumbnail(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob);
+  const video = document.createElement("video");
+  video.preload = "metadata";
+  video.muted = true;
+  video.src = url;
+  await new Promise<void>((resolve, reject) => {
+    video.onloadedmetadata = () => resolve();
+    video.onerror = () => reject(new Error("The compressed video thumbnail could not be created."));
+  });
+  video.currentTime = Math.min(1, Math.max(0, video.duration / 10));
+  await new Promise<void>((resolve, reject) => {
+    video.onseeked = () => resolve();
+    video.onerror = () => reject(new Error("The compressed video thumbnail could not be created."));
+  });
+  const canvas = document.createElement("canvas");
+  const maxWidth = 900;
+  const scale = Math.min(1, maxWidth / video.videoWidth);
+  canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+  canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+  canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const thumbnail = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob(
+      (result) => (result ? resolve(result) : reject(new Error("Thumbnail creation failed."))),
+      "image/jpeg",
+      0.86,
+    ),
+  );
+  URL.revokeObjectURL(url);
+  return new File([thumbnail], `${name.replace(/\.[^/.]+$/, "")}.jpg`, { type: "image/jpeg" });
+}
+
 const edits: ArchiveEdit[] = [
   {
     id: 1,
@@ -150,6 +192,7 @@ export const Route = createFileRoute("/")({
 function Index() {
   const reduceMotion = useReducedMotion();
   const [activeFilter, setActiveFilter] = useState<Category>("All Edits");
+  const [archiveEdits, setArchiveEdits] = useState<ArchiveEdit[]>(edits);
   const [selected, setSelected] = useState<ArchiveEdit | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -184,6 +227,53 @@ function Index() {
       Math.sin(time * (theme === "night" ? 0.0009 : 0.00038)) * (theme === "night" ? 3.5 : 2);
     surfaceTide.set(scrollSwell + surfaceSway);
   });
+
+  const loadArchive = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+    const response = await fetch("/api/archive-items", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!response.ok) return;
+    const payload = (await response.json()) as {
+      items?: Array<{
+        id: string;
+        title: string;
+        note: string;
+        format: "9:16" | "16:9";
+        duration: number;
+        favorite: boolean;
+        size: number;
+        thumbnailUrl: string;
+        mediaUrl: string;
+        downloadUrl: string;
+      }>;
+    };
+    if (!payload.items) return;
+    setArchiveEdits(
+      payload.items.map((item) => ({
+        id: item.id,
+        title: item.title,
+        note: item.note,
+        image: item.thumbnailUrl,
+        size: formatBytes(item.size),
+        date: new Date()
+          .toLocaleDateString(undefined, { month: "short", day: "2-digit", year: "numeric" })
+          .toUpperCase(),
+        duration: formatDuration(item.duration),
+        format: item.format,
+        favorite: item.favorite,
+        videoUrl: item.mediaUrl,
+        downloadUrl: item.downloadUrl,
+      })),
+    );
+  }, []);
+
+  useEffect(() => {
+    void loadArchive();
+  }, [loadArchive]);
 
   useEffect(() => {
     if (reduceMotion) return;
@@ -246,19 +336,78 @@ function Index() {
 
   const visibleEdits = useMemo(
     () =>
-      edits.filter((edit) => {
+      archiveEdits.filter((edit) => {
         if (activeFilter === "Favorites") return edit.favorite;
         if (activeFilter === "TikTok / Reels") return edit.format === "9:16";
         if (activeFilter === "Landscape") return edit.format === "16:9";
         return true;
       }),
-    [activeFilter],
+    [activeFilter, archiveEdits],
   );
 
   const flashNotice = useCallback((text: string) => {
     setNotice(text);
     window.setTimeout(() => setNotice(null), 2600);
   }, []);
+
+  const uploadCompressedEdit = useCallback(
+    async (result: import("@/lib/video-compressor").CompressionResult, original: File) => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("Your session has expired. Please sign in again.");
+      const thumbnail = await createThumbnail(result.blob, original.name);
+      const form = new FormData();
+      form.set("file", new File([result.blob], result.fileName, { type: "video/mp4" }));
+      form.set("thumbnail", thumbnail);
+      form.set("title", original.name.replace(/\.[^/.]+$/, ""));
+      form.set("width", String(result.width));
+      form.set("height", String(result.height));
+      form.set("duration", String(result.duration));
+      const response = await fetch("/api/archive-items", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: form,
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok)
+        throw new Error(payload.error ?? "The compressed video could not be stored.");
+      await loadArchive();
+      setUploadOpen(false);
+    },
+    [loadArchive],
+  );
+
+  const downloadEdit = useCallback(
+    async (edit: ArchiveEdit) => {
+      if (!edit.downloadUrl) {
+        flashNotice(`${edit.title} is a sample edit`);
+        return;
+      }
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        flashNotice("Your session has expired");
+        return;
+      }
+      const response = await fetch(edit.downloadUrl, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!response.ok) {
+        flashNotice("Download could not be started");
+        return;
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${edit.title.replace(/[^a-z0-9_-]+/gi, "-")}.mp4`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    },
+    [flashNotice],
+  );
 
   const shareEdit = useCallback(
     async (edit: ArchiveEdit) => {
@@ -407,7 +556,16 @@ function Index() {
                 </h2>
               </div>
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                06 edits · 434.7 MB
+                {archiveEdits.length.toString().padStart(2, "0")} edits ·{" "}
+                {formatBytes(
+                  archiveEdits.reduce(
+                    (total, edit) =>
+                      total +
+                      Number.parseFloat(edit.size) *
+                        (edit.size.includes("MB") ? 1024 * 1024 : 1024),
+                    0,
+                  ),
+                )}
               </p>
             </div>
 
@@ -510,7 +668,7 @@ function Index() {
                               aria-label={`Download ${edit.title}`}
                               variant="ghost"
                               size="icon"
-                              onClick={() => flashNotice(`${edit.title} download queued`)}
+                              onClick={() => void downloadEdit(edit)}
                               className="text-muted-foreground hover:bg-primary/10 hover:text-primary"
                             >
                               <Download />
@@ -567,6 +725,7 @@ function Index() {
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
         onComplete={flashNotice}
+        onUpload={uploadCompressedEdit}
       />
       <AccountPanel
         open={accountOpen}
@@ -579,7 +738,7 @@ function Index() {
       <CinematicPlayer
         edit={selected}
         onClose={() => setSelected(null)}
-        onSave={(title) => flashNotice(`${title} is ready for your Camera Roll`)}
+        onSave={(title) => flashNotice(`${title} downloaded`)}
       />
 
       <AnimatePresence>

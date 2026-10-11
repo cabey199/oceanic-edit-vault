@@ -1,10 +1,21 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8" },
-  });
+type BucketObject = {
+  body: ReadableStream<Uint8Array> | null;
+  httpMetadata?: { contentType?: string; contentDisposition?: string };
+  size?: number;
+  etag?: string;
+};
+
+type MediaBucket = {
+  put: (
+    key: string,
+    value: ArrayBuffer | ArrayBufferView | ReadableStream<Uint8Array>,
+    options?: { httpMetadata?: Record<string, string> },
+  ) => Promise<unknown>;
+  get: (key: string) => Promise<BucketObject | null>;
+  delete: (key: string | string[]) => Promise<void>;
+};
 
 type RuntimeEnv = {
   SUPABASE_URL?: string;
@@ -12,9 +23,33 @@ type RuntimeEnv = {
   SUPABASE_SERVICE_ROLE_KEY?: string;
   VITE_SUPABASE_URL?: string;
   VITE_SUPABASE_ANON_KEY?: string;
+  MEDIA_BUCKET?: MediaBucket;
 };
 
 type InvitePayload = { email?: unknown; role?: unknown };
+type ArchiveRow = {
+  id: string;
+  title: string;
+  note: string | null;
+  format: "9:16" | "16:9";
+  duration_seconds: number | null;
+  width: number | null;
+  height: number | null;
+  favorite: boolean;
+  created_at: string;
+  archive_media_objects: Array<{
+    kind: "original" | "playback" | "thumbnail";
+    object_key: string;
+    byte_size: number;
+    content_type: string;
+  }>;
+};
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
 
 function getRuntimeEnv(env: unknown): RuntimeEnv {
   const requestEnv = env && typeof env === "object" ? env : undefined;
@@ -54,46 +89,251 @@ function getBearerToken(request: Request) {
   return value.startsWith("Bearer ") ? value.slice("Bearer ".length) : null;
 }
 
-async function requireDeveloper(request: Request, admin: SupabaseClient) {
+function createAdmin(env: RuntimeEnv) {
+  const config = getSupabaseConfig(env);
+  if (!config.serviceRoleKey || !config.url) return null;
+  return createClient(config.url, config.serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+async function requireUser(request: Request, admin: SupabaseClient) {
   const token = getBearerToken(request);
-  if (!token) return { error: "Authentication is not configured." } as const;
-  const { data: userData, error: userError } = await admin.auth.getUser(token);
-  if (userError || !userData.user) return { error: "Your session has expired." } as const;
-  const { data: membershipData, error: roleError } = await admin
+  if (!token) return { error: "Your session has expired." } as const;
+  const { data, error } = await admin.auth.getUser(token);
+  if (error || !data.user) return { error: "Your session has expired." } as const;
+  return { user: data.user } as const;
+}
+
+async function requireEditor(request: Request, admin: SupabaseClient) {
+  const auth = await requireUser(request, admin);
+  if ("error" in auth) return auth;
+  const { data: membership, error } = await admin
     .from("archive_memberships")
     .select("role")
-    .eq("user_id", userData.user.id)
+    .eq("user_id", auth.user.id)
     .maybeSingle();
-  const membership = membershipData as { role?: string } | null;
-  if (roleError || membership?.role !== "developer")
+  if (error || !membership || !["editor", "developer"].includes(membership.role))
+    return { error: "Editor access is required." } as const;
+  return auth;
+}
+
+async function requireViewer(request: Request, admin: SupabaseClient) {
+  const auth = await requireUser(request, admin);
+  if ("error" in auth) return auth;
+  const { data: membership, error } = await admin
+    .from("archive_memberships")
+    .select("role")
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+  if (error || !membership || !["viewer", "editor", "developer"].includes(membership.role))
+    return { error: "Archive access is required." } as const;
+  return auth;
+}
+
+async function requireDeveloper(request: Request, admin: SupabaseClient) {
+  const auth = await requireUser(request, admin);
+  if ("error" in auth) return auth;
+  const { data: membership, error } = await admin
+    .from("archive_memberships")
+    .select("role")
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+  if (error || membership?.role !== "developer")
     return { error: "Developer access is required." } as const;
-  return { user: userData.user } as const;
+  return auth;
+}
+
+function safeStem(name: string) {
+  return (
+    name
+      .replace(/\.[^/.]+$/, "")
+      .replace(/[^a-zA-Z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80) || "untitled-edit"
+  );
+}
+
+function formatFor(width: number, height: number): "9:16" | "16:9" {
+  return height > width ? "9:16" : "16:9";
+}
+
+async function listArchiveItems(request: Request, env: RuntimeEnv) {
+  const admin = createAdmin(env);
+  if (!admin) return json({ error: "Archive service is not configured yet." }, 503);
+  const auth = await requireViewer(request, admin);
+  if ("error" in auth) return json({ error: auth.error }, 401);
+  const { data, error } = await admin
+    .from("archive_items")
+    .select(
+      "id,title,note,format,duration_seconds,width,height,favorite,created_at,archive_media_objects(kind,object_key,byte_size,content_type)",
+    )
+    .eq("archived", false)
+    .in("status", ["ready", "processing"])
+    .order("created_at", { ascending: false });
+  if (error) return json({ error: error.message }, 500);
+
+  const items = ((data ?? []) as ArchiveRow[]).map((item) => ({
+    id: item.id,
+    title: item.title,
+    note: item.note ?? "Compressed archive edit",
+    format: item.format,
+    duration: item.duration_seconds ?? 0,
+    width: item.width,
+    height: item.height,
+    favorite: item.favorite,
+    size: item.archive_media_objects.find((media) => media.kind === "playback")?.byte_size ?? 0,
+    thumbnailUrl: `${new URL(request.url).origin}/api/archive-items/${item.id}/media/thumbnail`,
+    mediaUrl: `${new URL(request.url).origin}/api/archive-items/${item.id}/media/playback`,
+    downloadUrl: `${new URL(request.url).origin}/api/archive-items/${item.id}/media/playback?download=1`,
+  }));
+  return json({ items });
+}
+
+async function createArchiveItem(request: Request, env: RuntimeEnv) {
+  const admin = createAdmin(env);
+  const bucket = env.MEDIA_BUCKET;
+  if (!admin || !bucket) return json({ error: "R2 media storage is not configured yet." }, 503);
+  const auth = await requireEditor(request, admin);
+  if ("error" in auth) return json({ error: auth.error }, 403);
+
+  let form: FormData;
+  try {
+    form = await request.formData();
+  } catch {
+    return json({ error: "Upload body must be multipart form data." }, 400);
+  }
+  const file = form.get("file");
+  const thumbnail = form.get("thumbnail");
+  const title = typeof form.get("title") === "string" ? String(form.get("title")).trim() : "";
+  const width = Number(form.get("width"));
+  const height = Number(form.get("height"));
+  const duration = Number(form.get("duration"));
+  if (!(file instanceof File) || !(thumbnail instanceof File) || !title || !width || !height)
+    return json(
+      { error: "Compressed media, thumbnail, title, width, and height are required." },
+      400,
+    );
+
+  const itemInsert = await admin
+    .from("archive_items")
+    .insert({
+      owner_id: auth.user.id,
+      title,
+      note: "Compressed archive edit",
+      format: formatFor(width, height),
+      duration_seconds: Number.isFinite(duration) ? duration : null,
+      width,
+      height,
+      codec: "h264",
+      status: "processing",
+    })
+    .select("id")
+    .single();
+  if (itemInsert.error || !itemInsert.data)
+    return json({ error: itemInsert.error?.message ?? "Could not create archive item." }, 500);
+
+  const id = itemInsert.data.id as string;
+  const stem = safeStem(file.name);
+  const mediaKey = `archive/${auth.user.id}/${id}/media/${stem}.mp4`;
+  const thumbnailKey = `archive/${auth.user.id}/${id}/thumbnail/${safeStem(thumbnail.name)}.jpg`;
+  try {
+    await bucket.put(mediaKey, await file.arrayBuffer(), {
+      httpMetadata: {
+        "content-type": "video/mp4",
+        "content-disposition": `inline; filename="${stem}.mp4"`,
+      },
+    });
+    await bucket.put(thumbnailKey, await thumbnail.arrayBuffer(), {
+      httpMetadata: {
+        "content-type": thumbnail.type || "image/jpeg",
+        "content-disposition": "inline",
+      },
+    });
+    const { error: mediaError } = await admin.from("archive_media_objects").insert([
+      {
+        archive_item_id: id,
+        provider: "r2",
+        kind: "playback",
+        object_key: mediaKey,
+        byte_size: file.size,
+        content_type: "video/mp4",
+      },
+      {
+        archive_item_id: id,
+        provider: "r2",
+        kind: "thumbnail",
+        object_key: thumbnailKey,
+        byte_size: thumbnail.size,
+        content_type: thumbnail.type || "image/jpeg",
+      },
+    ]);
+    if (mediaError) throw new Error(mediaError.message);
+    const { error: readyError } = await admin
+      .from("archive_items")
+      .update({ status: "ready", updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (readyError) throw new Error(readyError.message);
+    return json({ ok: true, id });
+  } catch (error) {
+    await bucket.delete([mediaKey, thumbnailKey]);
+    await admin.from("archive_items").update({ status: "failed" }).eq("id", id);
+    return json({ error: error instanceof Error ? error.message : "Upload failed." }, 500);
+  }
+}
+
+async function serveMedia(
+  request: Request,
+  env: RuntimeEnv,
+  itemId: string,
+  kind: "playback" | "thumbnail",
+) {
+  const admin = createAdmin(env);
+  const bucket = env.MEDIA_BUCKET;
+  if (!admin || !bucket) return json({ error: "R2 media storage is not configured yet." }, 503);
+  const auth = await requireViewer(request, admin);
+  if ("error" in auth) return json({ error: auth.error }, 401);
+  const { data: item, error } = await admin
+    .from("archive_items")
+    .select("owner_id,archive_media_objects!inner(kind,object_key,content_type)")
+    .eq("id", itemId)
+    .eq("archive_media_objects.kind", kind)
+    .maybeSingle();
+  if (error || !item) return json({ error: "Archive item was not found." }, 404);
+  const media = (
+    item.archive_media_objects as Array<{ object_key: string; content_type: string }>
+  )[0];
+  if (!media) return json({ error: "Media file was not found." }, 404);
+  const object = await bucket.get(media.object_key);
+  if (!object?.body) return json({ error: "Stored media file was not found." }, 404);
+  const headers = new Headers({
+    "content-type": media.content_type,
+    "cache-control": "private, max-age=60",
+    "accept-ranges": "bytes",
+  });
+  if (new URL(request.url).searchParams.get("download") === "1") {
+    headers.set("content-disposition", `attachment; filename="${itemId}.mp4"`);
+  }
+  return new Response(object.body, { headers });
 }
 
 async function inviteUser(request: Request, env: RuntimeEnv) {
   const config = getSupabaseConfig(env);
-  if (!config.serviceRoleKey || !config.url)
+  const admin = createAdmin(env);
+  if (!admin || !config.serviceRoleKey || !config.url)
     return json({ error: "Invitation service is not configured yet." }, 503);
-
-  const admin = createClient(config.url, config.serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
   const auth = await requireDeveloper(request, admin);
-  if ("error" in auth)
-    return json({ error: auth.error }, auth.error === "Developer access is required." ? 403 : 401);
-
+  if ("error" in auth) return json({ error: auth.error }, 403);
   let payload: InvitePayload;
   try {
     payload = (await request.json()) as InvitePayload;
   } catch {
     return json({ error: "Request body must be valid JSON." }, 400);
   }
-
   const email = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
   const role = payload.role === "editor" ? "editor" : payload.role === "viewer" ? "viewer" : "";
   if (!email || !email.includes("@") || !role)
     return json({ error: "Provide a valid email and viewer/editor role." }, 400);
-
   const origin = new URL(request.url).origin;
   const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
     data: { archive_role: role, invited_by: auth.user.id },
@@ -101,7 +341,6 @@ async function inviteUser(request: Request, env: RuntimeEnv) {
   });
   if (inviteError || !invited.user)
     return json({ error: inviteError?.message ?? "Invitation could not be sent." }, 400);
-
   const { error: recordError } = await admin.from("archive_invitations").insert({
     email,
     role,
@@ -113,17 +352,32 @@ async function inviteUser(request: Request, env: RuntimeEnv) {
 }
 
 export async function handleApiRequest(request: Request, env: unknown): Promise<Response | null> {
+  const runtime = getRuntimeEnv(env);
   const url = new URL(request.url);
   if (url.pathname === "/api/runtime-status" && request.method === "GET") {
-    const runtime = getRuntimeEnv(env);
     return json({
       hasSupabaseUrl: Boolean(runtime.SUPABASE_URL ?? runtime.VITE_SUPABASE_URL),
       hasAnonKey: Boolean(runtime.SUPABASE_ANON_KEY ?? runtime.VITE_SUPABASE_ANON_KEY),
       hasServiceRoleKey: Boolean(runtime.SUPABASE_SERVICE_ROLE_KEY),
-      visibleBindingNames: Object.keys(runtime).filter((key) => key.includes("SUPABASE")),
+      hasMediaBucket: Boolean(runtime.MEDIA_BUCKET),
+      visibleBindingNames: Object.keys(runtime).filter(
+        (key) => key.includes("SUPABASE") || key.includes("BUCKET"),
+      ),
     });
   }
-  if (url.pathname !== "/api/invitations") return null;
-  if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
-  return inviteUser(request, getRuntimeEnv(env));
+  if (url.pathname === "/api/invitations") {
+    if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
+    return inviteUser(request, runtime);
+  }
+  if (url.pathname === "/api/archive-items") {
+    if (request.method === "GET") return listArchiveItems(request, runtime);
+    if (request.method === "POST") return createArchiveItem(request, runtime);
+    return json({ error: "Method not allowed." }, 405);
+  }
+  const mediaMatch = url.pathname.match(
+    /^\/api\/archive-items\/([^/]+)\/media\/(playback|thumbnail)$/,
+  );
+  if (mediaMatch && request.method === "GET")
+    return serveMedia(request, runtime, mediaMatch[1], mediaMatch[2] as "playback" | "thumbnail");
+  return null;
 }
