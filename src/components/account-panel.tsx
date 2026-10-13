@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Mail, ShieldCheck, UserPlus, X, KeyRound } from "lucide-react";
+import { Check, HardDrive, Mail, ShieldCheck, UserPlus, X, KeyRound } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,19 @@ type AccountPanelProps = {
 };
 
 type Feedback = { kind: "success" | "error"; message: string } | null;
+type ArchiveStats = {
+  totalBytes: number;
+  originalBytes: number;
+  itemCount: number;
+  r2Bytes: number;
+  b2Bytes: number;
+};
+
+const formatBytes = (bytes: number) => {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+};
 
 export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
   const [email, setEmail] = useState("");
@@ -25,12 +38,23 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteFeedback, setInviteFeedback] = useState<Feedback>(null);
   const [feedback, setFeedback] = useState<Feedback>(null);
+  const [stats, setStats] = useState<ArchiveStats | null>(null);
+  const [statsBusy, setStatsBusy] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     let active = true;
     supabase.auth.getUser().then(({ data }) => {
       if (active) setEmail(data.user?.email ?? "");
+    });
+    setStatsBusy(true);
+    void supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) return;
+      const response = await fetch("/api/archive-stats", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (response.ok && active) setStats((await response.json()) as ArchiveStats);
+      if (active) setStatsBusy(false);
     });
     return () => {
       active = false;
@@ -156,6 +180,57 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                 <X />
               </Button>
             </header>
+
+            <section className="mx-4 mt-4 glass-card p-5 sm:mx-8 sm:p-6">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <HardDrive className="size-4 text-primary" />
+                  <div>
+                    <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-primary">
+                      Storage
+                    </p>
+                    <h3 className="mt-1 text-base font-medium">Your archive usage</h3>
+                  </div>
+                </div>
+                <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
+                  R2 primary
+                </span>
+              </div>
+              <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div>
+                  <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
+                    Used
+                  </p>
+                  <p className="mt-2 text-lg text-foreground">
+                    {statsBusy ? "…" : formatBytes(stats?.totalBytes ?? 0)}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
+                    Original videos
+                  </p>
+                  <p className="mt-2 text-lg text-foreground">
+                    {statsBusy ? "…" : formatBytes(stats?.originalBytes ?? 0)}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
+                    Uploads
+                  </p>
+                  <p className="mt-2 text-lg text-foreground">
+                    {statsBusy ? "…" : (stats?.itemCount ?? 0)}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
+                    Backup
+                  </p>
+                  <p className="mt-2 text-lg text-foreground">
+                    {statsBusy ? "…" : formatBytes(stats?.b2Bytes ?? 0)}
+                  </p>
+                </div>
+              </div>
+            </section>
 
             <div className="grid gap-4 p-4 sm:grid-cols-2 sm:p-8">
               <section className="glass-card p-5 sm:p-6">

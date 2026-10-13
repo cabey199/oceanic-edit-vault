@@ -19,6 +19,7 @@ import {
   Play,
   Share2,
   Sun,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -454,6 +455,30 @@ function Index() {
   const shareEdit = useCallback(
     async (edit: ArchiveEdit) => {
       try {
+        if (navigator.share && edit.videoUrl) {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          if (session) {
+            const response = await fetch(edit.videoUrl, {
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            });
+            if (response.ok) {
+              const blob = await response.blob();
+              const file = new File([blob], `${edit.title.replace(/[^a-z0-9_-]+/gi, "-")}.mp4`, {
+                type: blob.type || "video/mp4",
+              });
+              if (!navigator.canShare || navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                  files: [file],
+                  title: edit.title,
+                  text: `${edit.title} · chico’s POV`,
+                });
+                return;
+              }
+            }
+          }
+        }
         if (navigator.share) {
           await navigator.share({
             title: edit.title,
@@ -470,6 +495,36 @@ function Index() {
       }
     },
     [flashNotice],
+  );
+
+  const deleteEdit = useCallback(
+    async (edit: ArchiveEdit) => {
+      if (!edit.videoUrl) {
+        flashNotice("Sample edits cannot be deleted");
+        return;
+      }
+      if (!window.confirm(`Delete “${edit.title}” permanently? This cannot be undone.`)) return;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        flashNotice("Your session has expired");
+        return;
+      }
+      const response = await fetch(`/api/archive-items/${edit.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        flashNotice(payload.error ?? "Upload could not be deleted");
+        return;
+      }
+      if (selected?.id === edit.id) setSelected(null);
+      await loadArchive();
+      flashNotice("Upload deleted");
+    },
+    [flashNotice, loadArchive, selected],
   );
 
   return (
@@ -721,6 +776,16 @@ function Index() {
                               className="text-muted-foreground hover:bg-primary/10 hover:text-primary"
                             >
                               <Share2 />
+                            </Button>
+                            <Button
+                              title="Delete upload"
+                              aria-label={`Delete ${edit.title}`}
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => void deleteEdit(edit)}
+                              className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <Trash2 />
                             </Button>
                           </div>
                         </div>

@@ -321,6 +321,36 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
   }
 }
 
+async function deleteArchiveItem(request: Request, env: RuntimeEnv, itemId: string) {
+  const admin = createAdmin(env);
+  const bucket = env.MEDIA_BUCKET;
+  if (!admin || !bucket) return json({ error: "R2 media storage is not configured yet." }, 503);
+  const auth = await requireEditor(request, admin);
+  if ("error" in auth) return json({ error: auth.error }, 403);
+  const { data: item, error } = await admin
+    .from("archive_items")
+    .select("owner_id,archive_media_objects(object_key)")
+    .eq("id", itemId)
+    .maybeSingle();
+  if (error || !item) return json({ error: "Archive item was not found." }, 404);
+  if (item.owner_id !== auth.user.id)
+    return json({ error: "You can only delete your own uploads." }, 403);
+  const objects = (item.archive_media_objects ?? []) as Array<{ object_key: string }>;
+  try {
+    if (objects.length) await bucket.delete(objects.map((object) => object.object_key));
+    const { error: deleteError } = await admin.from("archive_items").delete().eq("id", itemId);
+    if (deleteError) return json({ error: deleteError.message }, 500);
+    return json({ ok: true, id: itemId });
+  } catch (deleteError) {
+    return json(
+      {
+        error: deleteError instanceof Error ? deleteError.message : "Upload could not be deleted.",
+      },
+      500,
+    );
+  }
+}
+
 async function serveMedia(
   request: Request,
   env: RuntimeEnv,
@@ -413,6 +443,9 @@ export async function handleApiRequest(request: Request, env: unknown): Promise<
     if (request.method === "POST") return createArchiveItem(request, runtime);
     return json({ error: "Method not allowed." }, 405);
   }
+  const itemDeleteMatch = url.pathname.match(/^\/api\/archive-items\/([^/]+)$/);
+  if (itemDeleteMatch && request.method === "DELETE")
+    return deleteArchiveItem(request, runtime, itemDeleteMatch[1]);
   if (url.pathname === "/api/archive-stats" && request.method === "GET")
     return getArchiveStats(request, runtime);
   const mediaMatch = url.pathname.match(
