@@ -80,7 +80,12 @@ async function createThumbnail(blob: Blob, name: string) {
     ),
   );
   URL.revokeObjectURL(url);
-  return new File([thumbnail], `${name.replace(/\.[^/.]+$/, "")}.jpg`, { type: "image/jpeg" });
+  return {
+    file: new File([thumbnail], `${name.replace(/\.[^/.]+$/, "")}.jpg`, { type: "image/jpeg" }),
+    width: video.videoWidth,
+    height: video.videoHeight,
+    duration: video.duration,
+  };
 }
 
 const edits: ArchiveEdit[] = [
@@ -350,28 +355,27 @@ function Index() {
     window.setTimeout(() => setNotice(null), 2600);
   }, []);
 
-  const uploadCompressedEdit = useCallback(
-    async (result: import("@/lib/video-compressor").CompressionResult, original: File) => {
+  const uploadOriginalEdit = useCallback(
+    async (original: File) => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) throw new Error("Your session has expired. Please sign in again.");
-      const thumbnail = await createThumbnail(result.blob, original.name);
+      const thumbnail = await createThumbnail(original, original.name);
       const form = new FormData();
-      form.set("file", new File([result.blob], result.fileName, { type: "video/mp4" }));
-      form.set("thumbnail", thumbnail);
+      form.set("file", original, original.name);
+      form.set("thumbnail", thumbnail.file);
       form.set("title", original.name.replace(/\.[^/.]+$/, ""));
-      form.set("width", String(result.width));
-      form.set("height", String(result.height));
-      form.set("duration", String(result.duration));
+      form.set("width", String(thumbnail.width));
+      form.set("height", String(thumbnail.height));
+      form.set("duration", String(thumbnail.duration));
       const response = await fetch("/api/archive-items", {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: form,
       });
       const payload = (await response.json()) as { error?: string };
-      if (!response.ok)
-        throw new Error(payload.error ?? "The compressed video could not be stored.");
+      if (!response.ok) throw new Error(payload.error ?? "The original video could not be stored.");
       await loadArchive();
       setUploadOpen(false);
     },
@@ -725,7 +729,7 @@ function Index() {
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
         onComplete={flashNotice}
-        onUpload={uploadCompressedEdit}
+        onUpload={uploadOriginalEdit}
       />
       <AccountPanel
         open={accountOpen}

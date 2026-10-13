@@ -31,7 +31,7 @@ export const Route = createFileRoute("/admin")({
       { property: "og:title", content: "Developer Vault — Oceanic Edits Archive" },
       {
         property: "og:description",
-        content: "Private archive health, storage, and compression controls.",
+        content: "Private archive health, storage, and storage controls.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

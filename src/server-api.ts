@@ -176,16 +176,16 @@ async function listArchiveItems(request: Request, env: RuntimeEnv) {
   const items = ((data ?? []) as ArchiveRow[]).map((item) => ({
     id: item.id,
     title: item.title,
-    note: item.note ?? "Compressed archive edit",
+    note: item.note ?? "Original-quality archive edit",
     format: item.format,
     duration: item.duration_seconds ?? 0,
     width: item.width,
     height: item.height,
     favorite: item.favorite,
-    size: item.archive_media_objects.find((media) => media.kind === "playback")?.byte_size ?? 0,
+    size: item.archive_media_objects.find((media) => media.kind === "original")?.byte_size ?? 0,
     thumbnailUrl: `${new URL(request.url).origin}/api/archive-items/${item.id}/media/thumbnail`,
-    mediaUrl: `${new URL(request.url).origin}/api/archive-items/${item.id}/media/playback`,
-    downloadUrl: `${new URL(request.url).origin}/api/archive-items/${item.id}/media/playback?download=1`,
+    mediaUrl: `${new URL(request.url).origin}/api/archive-items/${item.id}/media/original`,
+    downloadUrl: `${new URL(request.url).origin}/api/archive-items/${item.id}/media/original?download=1`,
   }));
   return json({ items });
 }
@@ -213,10 +213,10 @@ async function getArchiveStats(request: Request, env: RuntimeEnv) {
       result.totalBytes += Number(row.byte_size) || 0;
       result[`${row.provider}Bytes`] += Number(row.byte_size) || 0;
       if (row.kind === "thumbnail") result.thumbnailBytes += Number(row.byte_size) || 0;
-      else result.compressedBytes += Number(row.byte_size) || 0;
+      else result.originalBytes += Number(row.byte_size) || 0;
       return result;
     },
-    { totalBytes: 0, compressedBytes: 0, thumbnailBytes: 0, r2Bytes: 0, b2Bytes: 0 },
+    { totalBytes: 0, originalBytes: 0, thumbnailBytes: 0, r2Bytes: 0, b2Bytes: 0 },
   );
   const { count, error: countError } = await admin
     .from("archive_items")
@@ -249,7 +249,7 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
   const duration = Number(form.get("duration"));
   if (!(file instanceof File) || !(thumbnail instanceof File) || !title || !width || !height)
     return json(
-      { error: "Compressed media, thumbnail, title, width, and height are required." },
+      { error: "Original video, thumbnail, title, width, and height are required." },
       400,
     );
 
@@ -258,12 +258,12 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
     .insert({
       owner_id: auth.user.id,
       title,
-      note: "Compressed archive edit",
+      note: "Original-quality archive edit",
       format: formatFor(width, height),
       duration_seconds: Number.isFinite(duration) ? duration : null,
       width,
       height,
-      codec: "h264",
+      codec: file.type || "source",
       status: "processing",
     })
     .select("id")
@@ -273,13 +273,14 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
 
   const id = itemInsert.data.id as string;
   const stem = safeStem(file.name);
-  const mediaKey = `archive/${auth.user.id}/${id}/media/${stem}.mp4`;
+  const extension = file.name.split(".").pop()?.toLowerCase() || "mp4";
+  const mediaKey = `archive/${auth.user.id}/${id}/original/${stem}.${extension}`;
   const thumbnailKey = `archive/${auth.user.id}/${id}/thumbnail/${safeStem(thumbnail.name)}.jpg`;
   try {
     await bucket.put(mediaKey, await file.arrayBuffer(), {
       httpMetadata: {
-        "content-type": "video/mp4",
-        "content-disposition": `inline; filename="${stem}.mp4"`,
+        "content-type": file.type || "video/mp4",
+        "content-disposition": `inline; filename="${stem}.${extension}"`,
       },
     });
     await bucket.put(thumbnailKey, await thumbnail.arrayBuffer(), {
@@ -292,10 +293,10 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
       {
         archive_item_id: id,
         provider: "r2",
-        kind: "playback",
+        kind: "original",
         object_key: mediaKey,
         byte_size: file.size,
-        content_type: "video/mp4",
+        content_type: file.type || "video/mp4",
       },
       {
         archive_item_id: id,
@@ -324,7 +325,7 @@ async function serveMedia(
   request: Request,
   env: RuntimeEnv,
   itemId: string,
-  kind: "playback" | "thumbnail",
+  kind: "original" | "thumbnail",
 ) {
   const admin = createAdmin(env);
   const bucket = env.MEDIA_BUCKET;
@@ -350,7 +351,7 @@ async function serveMedia(
     "accept-ranges": "bytes",
   });
   if (new URL(request.url).searchParams.get("download") === "1") {
-    headers.set("content-disposition", `attachment; filename="${itemId}.mp4"`);
+    headers.set("content-disposition", `attachment; filename="${itemId}"`);
   }
   return new Response(object.body, { headers });
 }
@@ -415,9 +416,9 @@ export async function handleApiRequest(request: Request, env: unknown): Promise<
   if (url.pathname === "/api/archive-stats" && request.method === "GET")
     return getArchiveStats(request, runtime);
   const mediaMatch = url.pathname.match(
-    /^\/api\/archive-items\/([^/]+)\/media\/(playback|thumbnail)$/,
+    /^\/api\/archive-items\/([^/]+)\/media\/(original|thumbnail)$/,
   );
   if (mediaMatch && request.method === "GET")
-    return serveMedia(request, runtime, mediaMatch[1], mediaMatch[2] as "playback" | "thumbnail");
+    return serveMedia(request, runtime, mediaMatch[1], mediaMatch[2] as "original" | "thumbnail");
   return null;
 }

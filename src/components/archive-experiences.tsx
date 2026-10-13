@@ -24,7 +24,6 @@ import { type ChangeEvent, type DragEvent, useEffect, useRef, useState } from "r
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import { cancelCompression, compressVideo, type CompressionResult } from "@/lib/video-compressor";
 
 export type ArchiveEdit = {
   id: number;
@@ -42,11 +41,10 @@ type UploadDrawerProps = {
   open: boolean;
   onClose: () => void;
   onComplete: (message: string) => void;
-  onCompressed?: (result: CompressionResult, original: File) => void;
-  onUpload?: (result: CompressionResult, original: File) => Promise<void>;
+  onUpload?: (original: File) => Promise<void>;
 };
 
-type UploadPhase = "idle" | "compressing" | "uploading" | "ready" | "error";
+type UploadPhase = "idle" | "uploading" | "ready" | "error";
 
 const formatBytes = (bytes: number) => {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -63,40 +61,26 @@ export function UploadDrawer({
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [phase, setPhase] = useState<UploadPhase>("idle");
-  const [compressionPhase, setCompressionPhase] = useState<
-    "loading" | "compressing" | "finalizing"
-  >("loading");
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<CompressionResult | null>(null);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const processFile = async (selectedFile: File) => {
     setFile(selectedFile);
-    setResult(null);
     setError(null);
-    setProgress(0.02);
-    setPhase("compressing");
+    setProgress(0.05);
+    setPhase("uploading");
     try {
-      const compressed = await compressVideo(selectedFile, ({ phase: currentPhase, progress }) => {
-        setCompressionPhase(currentPhase);
-        setProgress(progress);
-      });
-      setResult(compressed);
+      if (onUpload) await onUpload(selectedFile);
       setProgress(1);
-      onCompressed?.(compressed, selectedFile);
-      if (onUpload) {
-        setPhase("uploading");
-        await onUpload(compressed, selectedFile);
-      }
       setPhase("ready");
-      onComplete(`${selectedFile.name} compressed and securely stored`);
-    } catch (compressionError) {
+      onComplete(`${selectedFile.name} stored at original quality`);
+    } catch (uploadError) {
       setPhase("error");
       setError(
-        compressionError instanceof Error
-          ? compressionError.message
-          : `Compression failed: ${String(compressionError)}. Refresh the page and try again.`,
+        uploadError instanceof Error
+          ? uploadError.message
+          : `Upload failed: ${String(uploadError)}. Please try again.`,
       );
     }
   };
@@ -116,9 +100,7 @@ export function UploadDrawer({
     chooseFile(event.dataTransfer.files[0]);
   };
   const reset = () => {
-    cancelCompression();
     setFile(null);
-    setResult(null);
     setError(null);
     setProgress(0);
     setPhase("idle");
@@ -153,7 +135,7 @@ export function UploadDrawer({
                 </p>
                 <h2 className="mt-3 font-display text-4xl">Upload an edit</h2>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Compressed locally for quality-first, space-saving storage.
+                  Stored privately at original quality. Nothing is compressed.
                 </p>
               </div>
               <Button
@@ -189,7 +171,7 @@ export function UploadDrawer({
               </motion.div>
               <h3 className="mt-6 text-base font-medium">Drag a video here or browse</h3>
               <p className="mt-2 text-xs text-muted-foreground">
-                MP4, MOV or WEBM · processed in your browser
+                MP4, MOV or WEBM · uploaded directly to private storage
               </p>
               <Button
                 variant="outline"
@@ -215,37 +197,15 @@ export function UploadDrawer({
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{file.name}</p>
                       <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.14em] text-primary">
-                        {phase === "compressing"
-                          ? compressionPhase === "loading"
-                            ? "Loading secure compression engine"
-                            : compressionPhase === "finalizing"
-                              ? "Finalizing quality checks"
-                              : "Compressing locally with H.264"
-                          : phase === "uploading"
-                            ? "Uploading compressed media securely"
-                            : phase === "ready"
-                              ? "Compressed media stored · ready to play"
-                              : "Compression failed"}
+                        {phase === "uploading"
+                          ? "Uploading original media securely"
+                          : phase === "ready"
+                            ? "Original media stored · ready to play"
+                            : "Upload failed"}
                       </p>
                     </div>
                     {phase === "ready" && <Check className="size-5 text-primary" />}
                   </div>
-                  {result && (
-                    <div className="mt-5 grid grid-cols-3 gap-3 border-y border-border py-3 font-mono text-[9px] uppercase tracking-[0.12em]">
-                      <div>
-                        <p className="text-muted-foreground">Original</p>
-                        <p className="mt-1 text-foreground">{formatBytes(result.inputBytes)}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Playback</p>
-                        <p className="mt-1 text-foreground">{formatBytes(result.outputBytes)}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Saved</p>
-                        <p className="mt-1 text-primary">{result.savedPercent}%</p>
-                      </div>
-                    </div>
-                  )}
                   <div className="mt-5 h-1 overflow-hidden bg-muted">
                     <motion.div
                       className="h-full bg-primary shadow-[0_0_16px_var(--primary)]"
@@ -254,22 +214,16 @@ export function UploadDrawer({
                   </div>
                   <div className="mt-2 flex justify-between font-mono text-[9px] text-muted-foreground">
                     <span>
-                      {phase === "compressing"
-                        ? compressionPhase === "loading"
-                          ? "Preparing the browser compression engine — first load may take a few minutes"
-                          : compressionPhase === "finalizing"
-                            ? "Checking resolution, duration, and audio"
-                            : "Preparing quality-controlled media"
-                        : phase === "uploading"
-                          ? "Sending compressed media to private storage"
-                          : phase === "ready"
-                            ? "Stored and ready"
-                            : error}
+                      {phase === "uploading"
+                        ? "Sending the original file to private storage"
+                        : phase === "ready"
+                          ? "Stored at original quality and ready"
+                          : error}
                     </span>
                     <span>{Math.round(progress * 100)}%</span>
                   </div>
                   <div className="mt-5 flex gap-2">
-                    {(phase === "compressing" || phase === "uploading") && (
+                    {phase === "uploading" && (
                       <Button variant="ghost" onClick={reset} className="text-muted-foreground">
                         Cancel
                       </Button>
@@ -287,8 +241,8 @@ export function UploadDrawer({
                 </motion.div>
               ) : (
                 <div className="mt-auto flex items-center gap-3 border-t border-border pt-6 text-xs text-muted-foreground">
-                  <ShieldCheck className="size-4 text-primary" /> Private local compression ·
-                  compressed media only is stored
+                  <ShieldCheck className="size-4 text-primary" /> Private direct upload · original
+                  quality is stored
                 </div>
               )}
             </AnimatePresence>
@@ -306,11 +260,11 @@ export function DeveloperDashboard({
   embedded?: boolean;
   onClose?: () => void;
 }) {
-  const [compress, setCompress] = useState(true);
+  const [originalQuality, setOriginalQuality] = useState(true);
   const [access, setAccess] = useState<"checking" | "granted" | "denied">("checking");
   const [stats, setStats] = useState<{
     totalBytes: number;
-    compressedBytes: number;
+    originalBytes: number;
     thumbnailBytes: number;
     r2Bytes: number;
     b2Bytes: number;
@@ -393,7 +347,7 @@ export function DeveloperDashboard({
           </p>
           <h1 className="mt-3 font-display text-4xl sm:text-6xl">Developer vault</h1>
           <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
-            Private archive infrastructure, compression controls, and live system health.
+            Private archive infrastructure, storage controls, and live system health.
           </p>
         </div>
         {onClose && (
@@ -412,7 +366,7 @@ export function DeveloperDashboard({
           icon={HardDrive}
           label="Storage capacity"
           value={stats ? formatMetricBytes(stats.totalBytes) : "Loading…"}
-          detail="Tracked compressed media and thumbnails"
+          detail="Tracked original-quality media and thumbnails"
         />
         <Metric
           icon={Cloud}
@@ -426,7 +380,7 @@ export function DeveloperDashboard({
           value={stats ? String(stats.itemCount) : "Loading…"}
           detail={
             stats
-              ? `${formatMetricBytes(stats.compressedBytes)} compressed media`
+              ? `${formatMetricBytes(stats.originalBytes)} original-quality media`
               : "Reading archive"
           }
         />
@@ -439,30 +393,31 @@ export function DeveloperDashboard({
                 <Zap className="size-5" />
               </div>
               <div>
-                <h2 className="text-sm font-semibold">Auto-Compress Videos Client-Side</h2>
+                <h2 className="text-sm font-semibold">Store Original Video Quality</h2>
                 <p className="mt-2 max-w-md text-xs leading-5 text-muted-foreground">
-                  Reduce file size before upload while keeping social-ready visual quality.
+                  Keep the complete uploaded video without browser original-quality storage or
+                  quality loss.
                 </p>
               </div>
             </div>
             <Button
               role="switch"
-              aria-checked={compress}
-              aria-label="Toggle automatic video compression"
-              onClick={() => setCompress((value) => !value)}
+              aria-checked={originalQuality}
+              aria-label="Toggle original-quality storage"
+              onClick={() => setOriginalQuality((value) => !value)}
               variant="ghost"
-              className={`h-7 w-12 rounded-full border p-1 ${compress ? "border-primary bg-primary/20" : "border-border bg-muted"}`}
+              className={`h-7 w-12 rounded-full border p-1 ${originalQuality ? "border-primary bg-primary/20" : "border-border bg-muted"}`}
             >
               <motion.span
                 layout
-                className={`block size-4 rounded-full ${compress ? "ml-5 bg-primary shadow-[0_0_12px_var(--primary)]" : "mr-5 bg-muted-foreground"}`}
+                className={`block size-4 rounded-full ${originalQuality ? "ml-5 bg-primary shadow-[0_0_12px_var(--primary)]" : "mr-5 bg-muted-foreground"}`}
               />
             </Button>
           </div>
           <div className="mt-8 grid grid-cols-3 gap-3 border-t border-border pt-6">
             <SmallStat
-              label="Compressed media"
-              value={stats ? formatMetricBytes(stats.compressedBytes) : "—"}
+              label="Original-quality media"
+              value={stats ? formatMetricBytes(stats.originalBytes) : "—"}
             />
             <SmallStat
               label="Thumbnails"
