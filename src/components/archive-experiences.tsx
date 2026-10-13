@@ -542,6 +542,8 @@ export function CinematicPlayer({
 }) {
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(22);
+  const [videoSource, setVideoSource] = useState<string | null>(null);
+  const [mediaError, setMediaError] = useState<string | null>(null);
   useEffect(() => {
     if (!playing || !edit) return;
     const timer = window.setInterval(
@@ -553,6 +555,31 @@ export function CinematicPlayer({
   useEffect(() => {
     setPlaying(false);
     setPosition(22);
+  }, [edit]);
+  useEffect(() => {
+    let active = true;
+    let objectUrl: string | undefined;
+    setVideoSource(null);
+    setMediaError(null);
+    if (!edit?.videoUrl) return;
+    void (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("Your session has expired.");
+      const response = await fetch(edit.videoUrl!, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!response.ok) throw new Error("The private video could not be loaded.");
+      objectUrl = URL.createObjectURL(await response.blob());
+      if (active) setVideoSource(objectUrl);
+    })().catch((error: unknown) => {
+      if (active) setMediaError(error instanceof Error ? error.message : "Video playback failed.");
+    });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [edit]);
 
   return (
@@ -589,10 +616,9 @@ export function CinematicPlayer({
             onClick={(event) => event.stopPropagation()}
             className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-background"
           >
-            {edit.videoUrl ? (
+            {edit.videoUrl && videoSource ? (
               <video
-                src={edit.videoUrl}
-                poster={edit.image}
+                src={videoSource}
                 controls
                 playsInline
                 preload="metadata"
@@ -601,11 +627,10 @@ export function CinematicPlayer({
                 onPause={() => setPlaying(false)}
               />
             ) : (
-              <img
-                src={edit.image}
-                alt={`${edit.title} cinematic preview`}
-                className={`h-full w-full object-contain transition duration-700 ${playing ? "scale-[1.015]" : "scale-100"}`}
-              />
+              <div className="flex flex-col items-center gap-3 text-center text-sm text-muted-foreground">
+                <Video className="size-10 text-primary" />
+                {mediaError ?? "Loading private original video…"}
+              </div>
             )}
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,transparent_62%,var(--background))]" />
             {!edit.videoUrl && !playing && (
@@ -647,13 +672,24 @@ export function CinematicPlayer({
                 </div>
                 <Button
                   onClick={() => {
-                    if (edit.downloadUrl) {
+                    void (async () => {
+                      if (!edit.downloadUrl) return onSave(edit.title);
+                      const {
+                        data: { session },
+                      } = await supabase.auth.getSession();
+                      if (!session) return onSave(edit.title);
+                      const response = await fetch(edit.downloadUrl, {
+                        headers: { Authorization: `Bearer ${session.access_token}` },
+                      });
+                      if (!response.ok) return onSave(edit.title);
+                      const downloadUrl = URL.createObjectURL(await response.blob());
                       const anchor = document.createElement("a");
-                      anchor.href = edit.downloadUrl;
+                      anchor.href = downloadUrl;
                       anchor.download = `${edit.title.replace(/[^a-z0-9_-]+/gi, "-")}.mp4`;
                       anchor.click();
-                    }
-                    onSave(edit.title);
+                      URL.revokeObjectURL(downloadUrl);
+                      onSave(edit.title);
+                    })();
                   }}
                   className="w-full bg-primary text-primary-foreground shadow-[0_0_25px_var(--primary-glow)] hover:bg-primary/90 sm:w-auto"
                 >
