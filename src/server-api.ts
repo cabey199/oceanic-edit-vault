@@ -277,7 +277,7 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
   const mediaKey = `archive/${auth.user.id}/${id}/original/${stem}.${extension}`;
   const thumbnailKey = `archive/${auth.user.id}/${id}/thumbnail/${safeStem(thumbnail.name)}.jpg`;
   try {
-    await bucket.put(mediaKey, await file.arrayBuffer(), {
+    await bucket.put(mediaKey, file.stream(), {
       httpMetadata: {
         "content-type": file.type || "video/mp4",
         "content-disposition": `inline; filename="${stem}.${extension}"`,
