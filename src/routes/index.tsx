@@ -51,6 +51,44 @@ function formatDuration(seconds: number) {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
+function PrivateThumbnail({
+  src,
+  alt,
+  className,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
+  const [source, setSource] = useState<string | null>(src.startsWith("/api/") ? null : src);
+  useEffect(() => {
+    if (!src.startsWith("/api/")) return;
+    let active = true;
+    let objectUrl: string | undefined;
+    void (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+      const response = await fetch(src, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!response.ok) return;
+      objectUrl = URL.createObjectURL(await response.blob());
+      if (active) setSource(objectUrl);
+    })();
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [src]);
+  return source ? (
+    <img src={source} alt={alt} className={className} />
+  ) : (
+    <div aria-label={alt} role="img" className={`${className ?? ""} animate-pulse bg-primary/5`} />
+  );
+}
+
 async function createThumbnail(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
   const video = document.createElement("video");
@@ -609,12 +647,9 @@ function Index() {
                       <div
                         className={`relative overflow-hidden bg-secondary ${edit.format === "9:16" ? "aspect-[4/5]" : "aspect-[16/10]"}`}
                       >
-                        <img
+                        <PrivateThumbnail
                           src={edit.image}
                           alt={`${edit.title} video thumbnail`}
-                          loading="lazy"
-                          width={1440}
-                          height={900}
                           className="h-full w-full object-cover opacity-70 transition-all duration-[900ms] ease-out group-hover:scale-[1.03] group-hover:opacity-100"
                         />
                         <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--card),transparent_55%)] opacity-70" />

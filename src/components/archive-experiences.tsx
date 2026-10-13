@@ -541,20 +541,19 @@ export function CinematicPlayer({
   onSave: (title: string) => void;
 }) {
   const [playing, setPlaying] = useState(false);
-  const [position, setPosition] = useState(22);
+  const [position, setPosition] = useState(0);
+  const [currentSeconds, setCurrentSeconds] = useState(0);
+  const [durationSeconds, setDurationSeconds] = useState(0);
+  const [muted, setMuted] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [videoSource, setVideoSource] = useState<string | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
   useEffect(() => {
-    if (!playing || !edit) return;
-    const timer = window.setInterval(
-      () => setPosition((value) => (value >= 100 ? 0 : value + 1)),
-      300,
-    );
-    return () => window.clearInterval(timer);
-  }, [edit, playing]);
-  useEffect(() => {
     setPlaying(false);
-    setPosition(22);
+    setPosition(0);
+    setCurrentSeconds(0);
+    setDurationSeconds(0);
+    setMuted(false);
   }, [edit]);
   useEffect(() => {
     let active = true;
@@ -581,6 +580,14 @@ export function CinematicPlayer({
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [edit]);
+  const formatClock = (seconds: number) =>
+    `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+  const togglePlayback = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) void video.play();
+    else video.pause();
+  };
 
   return (
     <AnimatePresence>
@@ -619,12 +626,19 @@ export function CinematicPlayer({
             {edit.videoUrl && videoSource ? (
               <video
                 src={videoSource}
-                controls
+                ref={videoRef}
                 playsInline
                 preload="metadata"
                 className="h-full w-full object-contain"
                 onPlay={() => setPlaying(true)}
                 onPause={() => setPlaying(false)}
+                onLoadedMetadata={(event) => setDurationSeconds(event.currentTarget.duration)}
+                onTimeUpdate={(event) => {
+                  const video = event.currentTarget;
+                  setCurrentSeconds(video.currentTime);
+                  setPosition(video.duration ? (video.currentTime / video.duration) * 100 : 0);
+                }}
+                onVolumeChange={(event) => setMuted(event.currentTarget.muted)}
               />
             ) : (
               <div className="flex flex-col items-center gap-3 text-center text-sm text-muted-foreground">
@@ -633,11 +647,11 @@ export function CinematicPlayer({
               </div>
             )}
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,transparent_62%,var(--background))]" />
-            {!edit.videoUrl && !playing && (
+            {videoSource && !playing && (
               <Button
                 aria-label={`Play ${edit.title}`}
                 size="icon"
-                onClick={() => setPlaying(true)}
+                onClick={togglePlayback}
                 className="absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/50 bg-background/45 text-primary backdrop-blur-lg hover:bg-primary hover:text-primary-foreground"
               >
                 <Play className="ml-1 size-6 fill-current" />
@@ -650,7 +664,13 @@ export function CinematicPlayer({
                 min="0"
                 max="100"
                 value={position}
-                onChange={(event) => setPosition(Number(event.target.value))}
+                onChange={(event) => {
+                  const nextPosition = Number(event.target.value);
+                  setPosition(nextPosition);
+                  if (videoRef.current && durationSeconds) {
+                    videoRef.current.currentTime = (nextPosition / 100) * durationSeconds;
+                  }
+                }}
                 className="video-range w-full"
               />
               <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -658,13 +678,26 @@ export function CinematicPlayer({
                   size="icon"
                   variant="ghost"
                   aria-label={playing ? "Pause video" : "Play video"}
-                  onClick={() => setPlaying((value) => !value)}
+                  onClick={togglePlayback}
                 >
                   {playing ? <Pause /> : <Play className="fill-current" />}
                 </Button>
-                <Volume2 className="size-4 text-muted-foreground" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={muted ? "Unmute video" : "Mute video"}
+                  onClick={() => {
+                    if (!videoRef.current) return;
+                    videoRef.current.muted = !videoRef.current.muted;
+                    setMuted(videoRef.current.muted);
+                  }}
+                >
+                  <Volume2
+                    className={`size-4 ${muted ? "text-destructive" : "text-muted-foreground"}`}
+                  />
+                </Button>
                 <span className="font-mono text-[9px] text-muted-foreground">
-                  00:{String(Math.round(position * 0.24)).padStart(2, "0")} / {edit.duration}
+                  {formatClock(currentSeconds)} / {formatClock(durationSeconds || 0)}
                 </span>
                 <div className="min-w-0 flex-1 sm:ml-4">
                   <h2 className="truncate font-display text-xl sm:text-3xl">{edit.title}</h2>
