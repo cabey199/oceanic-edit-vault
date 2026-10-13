@@ -13,7 +13,10 @@ type MediaBucket = {
     value: ArrayBuffer | ArrayBufferView | ReadableStream<Uint8Array>,
     options?: { httpMetadata?: Record<string, string> },
   ) => Promise<unknown>;
-  get: (key: string) => Promise<BucketObject | null>;
+  get: (
+    key: string,
+    options?: { range?: { offset: number; length?: number } },
+  ) => Promise<BucketObject | null>;
   delete: (key: string | string[]) => Promise<void>;
 };
 
@@ -129,6 +132,25 @@ async function requireViewer(request: Request, admin: SupabaseClient) {
   if (error || !membership || !["viewer", "editor", "developer"].includes(membership.role))
     return { error: "Archive access is required." } as const;
   return auth;
+}
+
+async function requireMediaViewer(request: Request, admin: SupabaseClient) {
+  const token = getBearerToken(request) ?? new URL(request.url).searchParams.get("access_token");
+  if (!token) return { error: "Your session has expired." } as const;
+  const { data, error } = await admin.auth.getUser(token);
+  if (error || !data.user) return { error: "Your session has expired." } as const;
+  const { data: membership, error: membershipError } = await admin
+    .from("archive_memberships")
+    .select("role")
+    .eq("user_id", data.user.id)
+    .maybeSingle();
+  if (
+    membershipError ||
+    !membership ||
+    !["viewer", "editor", "developer"].includes(membership.role)
+  )
+    return { error: "Archive access is required." } as const;
+  return { user: data.user } as const;
 }
 
 async function requireDeveloper(request: Request, admin: SupabaseClient) {
@@ -360,7 +382,7 @@ async function serveMedia(
   const admin = createAdmin(env);
   const bucket = env.MEDIA_BUCKET;
   if (!admin || !bucket) return json({ error: "R2 media storage is not configured yet." }, 503);
-  const auth = await requireViewer(request, admin);
+  const auth = await requireMediaViewer(request, admin);
   if ("error" in auth) return json({ error: auth.error }, 401);
   const { data: item, error } = await admin
     .from("archive_items")
@@ -373,17 +395,38 @@ async function serveMedia(
     item.archive_media_objects as Array<{ object_key: string; content_type: string }>
   )[0];
   if (!media) return json({ error: "Media file was not found." }, 404);
-  const object = await bucket.get(media.object_key);
+  const rangeHeader = request.headers.get("range");
+  let range: { offset: number; length?: number } | undefined;
+  let rangeStart = 0;
+  let rangeEnd: number | undefined;
+  if (rangeHeader) {
+    const match = rangeHeader.match(/^bytes=(\d+)-(\d*)$/);
+    if (match) {
+      rangeStart = Number(match[1]);
+      rangeEnd = match[2] ? Number(match[2]) : undefined;
+      range = {
+        offset: rangeStart,
+        ...(rangeEnd !== undefined ? { length: rangeEnd - rangeStart + 1 } : {}),
+      };
+    }
+  }
+  const object = await bucket.get(media.object_key, range ? { range } : undefined);
   if (!object?.body) return json({ error: "Stored media file was not found." }, 404);
   const headers = new Headers({
     "content-type": media.content_type,
     "cache-control": "private, max-age=60",
     "accept-ranges": "bytes",
   });
+  if (range && object.size) {
+    const totalSize = object.size;
+    const actualEnd = rangeEnd ?? totalSize - 1;
+    headers.set("content-range", `bytes ${rangeStart}-${actualEnd}/${totalSize}`);
+    headers.set("content-length", String(actualEnd - rangeStart + 1));
+  }
   if (new URL(request.url).searchParams.get("download") === "1") {
     headers.set("content-disposition", `attachment; filename="${itemId}"`);
   }
-  return new Response(object.body, { headers });
+  return new Response(object.body, { status: range ? 206 : 200, headers });
 }
 
 async function inviteUser(request: Request, env: RuntimeEnv) {

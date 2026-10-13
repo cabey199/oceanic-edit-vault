@@ -65,22 +65,17 @@ function PrivateThumbnail({
   useEffect(() => {
     if (!src.startsWith("/api/")) return;
     let active = true;
-    let objectUrl: string | undefined;
     void (async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) return;
-      const response = await fetch(src, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (!response.ok) return;
-      objectUrl = URL.createObjectURL(await response.blob());
-      if (active) setSource(objectUrl);
+      const url = new URL(src, window.location.origin);
+      url.searchParams.set("access_token", session.access_token);
+      if (active) setSource(url.toString());
     })();
     return () => {
       active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [src]);
   return source ? (

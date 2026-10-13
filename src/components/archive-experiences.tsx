@@ -556,8 +556,6 @@ export function CinematicPlayer({
     setMuted(false);
   }, [edit]);
   useEffect(() => {
-    let active = true;
-    let objectUrl: string | undefined;
     setVideoSource(null);
     setMediaError(null);
     if (!edit?.videoUrl) return;
@@ -566,19 +564,12 @@ export function CinematicPlayer({
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) throw new Error("Your session has expired.");
-      const response = await fetch(edit.videoUrl!, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (!response.ok) throw new Error("The private video could not be loaded.");
-      objectUrl = URL.createObjectURL(await response.blob());
-      if (active) setVideoSource(objectUrl);
+      const url = new URL(edit.videoUrl!, window.location.origin);
+      url.searchParams.set("access_token", session.access_token);
+      setVideoSource(url.toString());
     })().catch((error: unknown) => {
-      if (active) setMediaError(error instanceof Error ? error.message : "Video playback failed.");
+      setMediaError(error instanceof Error ? error.message : "Video playback failed.");
     });
-    return () => {
-      active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
   }, [edit]);
   const formatClock = (seconds: number) =>
     `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
