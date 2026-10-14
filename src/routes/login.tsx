@@ -42,7 +42,7 @@ function LoginComponent() {
   };
 
   return (
-    <main className="ocean-archive relative isolate flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 text-foreground">
+    <main className="ocean-archive ios-login-page relative isolate overflow-x-hidden bg-background text-foreground">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.08)_0%,transparent_70%)]" />
 
       <motion.div
@@ -87,13 +87,17 @@ function LoginComponent() {
             </label>
             <input
               id="login-email"
+              name="email"
               autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="access@vault.com"
               required
-              className="h-12 w-full rounded-lg border border-border bg-card/50 px-4 text-sm text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="h-12 w-full rounded-lg border border-border bg-card/50 px-4 text-base text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
             />
           </div>
 
@@ -112,7 +116,7 @@ function LoginComponent() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
-              className="h-12 w-full rounded-lg border border-border bg-card/50 px-4 text-sm text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="h-12 w-full rounded-lg border border-border bg-card/50 px-4 text-base text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
             />
           </div>
 

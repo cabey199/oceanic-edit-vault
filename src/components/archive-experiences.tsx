@@ -111,7 +111,7 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 bg-background/75 backdrop-blur-lg"
+          className="fixed inset-0 z-50 overscroll-contain bg-background/75 backdrop-blur-lg"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -126,14 +126,14 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 260 }}
             onClick={(event) => event.stopPropagation()}
-            className="glass-panel absolute inset-y-0 right-0 flex w-full max-w-xl flex-col overflow-y-auto overscroll-contain p-5 sm:p-8"
+            className="ios-drawer-panel glass-panel absolute inset-y-0 right-0 flex w-full max-w-xl flex-col overflow-y-auto overscroll-contain"
           >
             <div className="flex items-start justify-between gap-6">
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-primary">
                   New transmission
                 </p>
-                <h2 className="mt-3 font-display text-4xl">Upload an edit</h2>
+                <h2 className="mt-3 font-display text-3xl sm:text-4xl">Upload an edit</h2>
                 <p className="mt-2 text-sm text-muted-foreground">
                   Stored privately at original quality. Nothing is compressed.
                 </p>
@@ -190,7 +190,7 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="Give this memory a name"
-                className="mt-2 w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                className="mt-2 w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-base text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
               />
             </label>
             {error && !file && (
@@ -353,7 +353,7 @@ export function DeveloperDashboard({
 
   if (access === "checking") {
     return (
-      <main className="ocean-archive relative isolate flex min-h-screen items-center justify-center px-5 text-foreground">
+      <main className="ocean-archive ios-viewport-min relative isolate flex items-center justify-center px-5 text-foreground">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary">
           Verifying developer access…
         </p>
@@ -363,7 +363,7 @@ export function DeveloperDashboard({
 
   if (access === "denied") {
     return (
-      <main className="ocean-archive relative isolate flex min-h-screen items-center justify-center px-5 text-foreground">
+      <main className="ocean-archive ios-viewport-min relative isolate flex items-center justify-center px-5 text-foreground">
         <section className="glass-panel max-w-md p-8 text-center">
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-destructive">
             Access denied
@@ -464,11 +464,16 @@ export function DeveloperDashboard({
               aria-label="Toggle original-quality storage"
               onClick={() => setOriginalQuality((value) => !value)}
               variant="ghost"
-              className={`h-7 min-h-0 w-12 rounded-full border p-1 ${originalQuality ? "border-primary bg-primary/20" : "border-border bg-muted"}`}
+              className="relative size-11 min-h-11 rounded-full border-0 bg-transparent p-0 hover:bg-primary/5"
             >
+              <span
+                aria-hidden="true"
+                className={`pointer-events-none absolute left-1/2 top-1/2 h-7 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border ${originalQuality ? "border-primary bg-primary/20" : "border-border bg-muted"}`}
+              />
               <motion.span
                 layout
-                className={`block size-4 rounded-full ${originalQuality ? "ml-5 bg-primary shadow-[0_0_12px_var(--primary)]" : "mr-5 bg-muted-foreground"}`}
+                aria-hidden="true"
+                className={`pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 rounded-full ${originalQuality ? "left-[1.625rem] bg-primary shadow-[0_0_12px_var(--primary)]" : "left-1 bg-muted-foreground"}`}
               />
             </Button>
           </div>
@@ -531,7 +536,7 @@ export function DeveloperDashboard({
   );
   if (!embedded)
     return (
-      <main className="ocean-archive relative isolate min-h-screen px-5 py-24 text-foreground sm:px-8">
+      <main className="ocean-archive ios-viewport-min relative isolate px-5 py-24 text-foreground sm:px-8">
         {content}
       </main>
     );
@@ -543,12 +548,13 @@ export function DeveloperDashboard({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 overflow-y-auto bg-background/90 px-5 py-16 backdrop-blur-2xl sm:px-8"
+      className="ios-safe-overlay items-start fixed inset-0 z-50 bg-background/90 backdrop-blur-2xl"
       onClick={onClose}
     >
       <motion.div
         initial={{ scale: 0.98, y: 16 }}
         animate={{ scale: 1, y: 0 }}
+        className="mx-auto w-full"
         onClick={(event) => event.stopPropagation()}
       >
         {content}
@@ -675,10 +681,10 @@ export function CinematicPlayer({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex flex-col bg-background"
+          className="ios-viewport-min fixed inset-0 z-50 flex flex-col bg-background"
           onClick={onClose}
         >
-          <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-4 sm:px-7">
+          <div className="ios-player-topbar flex shrink-0 items-center justify-between border-b border-border">
             <Button
               variant="ghost"
               onClick={onClose}
@@ -785,7 +791,7 @@ export function CinematicPlayer({
               </Button>
             )}
             <div
-              className="absolute inset-x-0 bottom-0 z-30 p-4 sm:p-8"
+              className="ios-player-controls absolute inset-x-0 bottom-0 z-30 pt-4"
               onClick={(event) => event.stopPropagation()}
               onPointerDown={(event) => event.stopPropagation()}
             >

@@ -519,7 +519,7 @@ function Index() {
   return (
     <main
       data-ocean-theme={theme}
-      className="ocean-archive relative isolate min-h-screen overflow-hidden bg-background text-foreground"
+      className="ocean-archive ios-viewport-min relative isolate overflow-hidden bg-background text-foreground"
     >
       <motion.div
         className="pointer-events-none fixed inset-[-15vh] -z-10"
@@ -529,20 +529,20 @@ function Index() {
       </motion.div>
       <motion.header
         style={{ y: surfaceTide }}
-        className="fixed inset-x-0 top-0 z-40 px-4 pt-4 sm:px-8 sm:pt-6"
+        className="ios-safe-header fixed inset-x-0 top-0 z-40"
       >
         <nav className="glass-panel mx-auto flex h-14 max-w-7xl items-center justify-between px-3 sm:h-16 sm:px-6">
           <a
             href="#top"
-            className="flex items-center gap-3 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground sm:text-xs"
+            className="flex min-w-0 items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground sm:gap-3 sm:text-xs sm:tracking-[0.22em]"
           >
             <span className="relative flex size-2">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" />
               <span className="relative inline-flex size-2 rounded-full bg-primary shadow-[0_0_14px_var(--primary)]" />
             </span>
-            <span className="ocean-brand">chico’s POV</span>
+            <span className="ocean-brand truncate whitespace-nowrap">chico’s POV</span>
           </a>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <Button
               aria-label={
                 theme === "calm" ? "Switch to Wavy Night theme" : "Switch to Calm Day theme"
@@ -558,7 +558,7 @@ function Index() {
             <Button
               variant="outline"
               onClick={() => setUploadOpen(true)}
-              className="h-10 border-primary/40 bg-primary/5 px-3 text-[11px] uppercase tracking-[0.16em] text-primary hover:border-primary hover:bg-primary/10 hover:text-primary sm:px-5"
+              className="h-11 border-primary/40 bg-primary/5 px-2 text-[10px] uppercase tracking-[0.12em] text-primary hover:border-primary hover:bg-primary/10 hover:text-primary sm:px-5 sm:text-[11px] sm:tracking-[0.16em]"
             >
               <Upload className="size-3.5" />{" "}
               <span className="hidden sm:inline">Upload new edit</span>
@@ -656,7 +656,7 @@ function Index() {
             </div>
 
             <div
-              className="no-scrollbar my-8 flex gap-2 overflow-x-auto pb-2"
+              className="ios-scroll-x no-scrollbar my-8 flex gap-2 overflow-x-auto pb-2"
               role="group"
               aria-label="Filter edits"
             >
@@ -666,7 +666,7 @@ function Index() {
                   aria-pressed={activeFilter === filter}
                   variant="ghost"
                   onClick={() => setActiveFilter(filter)}
-                  className={`min-h-10 shrink-0 rounded-full border px-4 font-mono text-[10px] uppercase tracking-[0.12em] ${activeFilter === filter ? "border-primary bg-primary/10 text-primary shadow-[0_0_18px_var(--primary-glow)]" : "border-border bg-card/30 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"}`}
+                  className={`min-h-11 shrink-0 rounded-full border px-4 font-mono text-[10px] uppercase tracking-[0.12em] ${activeFilter === filter ? "border-primary bg-primary/10 text-primary shadow-[0_0_18px_var(--primary-glow)]" : "border-border bg-card/30 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"}`}
                 >
                   {filter}
                 </Button>
@@ -743,7 +743,7 @@ function Index() {
                               variant="ghost"
                               size="icon"
                               onClick={() => void shareEdit(edit)}
-                              className="size-9 text-foreground hover:bg-primary/20 hover:text-primary"
+                              className="size-11 text-foreground hover:bg-primary/20 hover:text-primary"
                             >
                               <Share2 className="size-4" />
                             </Button>
@@ -753,7 +753,7 @@ function Index() {
                               variant="ghost"
                               size="icon"
                               onClick={() => void downloadEdit(edit)}
-                              className="size-9 text-foreground hover:bg-primary/20 hover:text-primary"
+                              className="size-11 text-foreground hover:bg-primary/20 hover:text-primary"
                             >
                               <Download className="size-4" />
                             </Button>
@@ -763,7 +763,7 @@ function Index() {
                               variant="ghost"
                               size="icon"
                               onClick={() => void deleteEdit(edit)}
-                              className="size-9 text-foreground hover:bg-destructive/20 hover:text-destructive"
+                              className="size-11 text-foreground hover:bg-destructive/20 hover:text-destructive"
                             >
                               <Trash2 className="size-4" />
                             </Button>
@@ -874,7 +874,7 @@ function Index() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-5 left-1/2 z-[60] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-xl border border-primary/30 bg-card/95 px-4 py-3 text-xs text-foreground shadow-[0_0_30px_var(--primary-glow)] backdrop-blur-xl"
+            className="ios-safe-toast fixed left-1/2 z-[60] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-xl border border-primary/30 bg-card/95 px-4 py-3 text-xs text-foreground shadow-[0_0_30px_var(--primary-glow)] backdrop-blur-xl"
           >
             <Check className="size-4 text-primary" />
             {notice}

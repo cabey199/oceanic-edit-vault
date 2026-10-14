@@ -157,7 +157,7 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 bg-background/80 p-4 backdrop-blur-xl sm:p-8"
+          className="ios-safe-overlay fixed inset-0 z-50 bg-background/80 backdrop-blur-xl"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -171,7 +171,7 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
             onClick={(event) => event.stopPropagation()}
-            className="glass-panel mx-auto flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-y-auto sm:my-8 sm:max-h-[calc(100vh-4rem)]"
+            className="ios-dialog-panel glass-panel mx-auto my-auto flex w-full max-w-4xl flex-col overflow-y-auto"
           >
             <header className="flex items-start justify-between gap-5 border-b border-border p-6 sm:p-8">
               <div>
@@ -302,11 +302,15 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                   </label>
                   <input
                     id="new-email"
+                    name="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
                     type="email"
                     value={newEmail}
                     onChange={(event) => setNewEmail(event.target.value)}
                     placeholder="new@address.com"
-                    className="w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                    className="w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-base text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
                   />
                   <Button
                     type="submit"
@@ -335,24 +339,28 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                   </label>
                   <input
                     id="new-password"
+                    name="new-password"
+                    autoComplete="new-password"
                     type="password"
                     minLength={6}
                     value={newPassword}
                     onChange={(event) => setNewPassword(event.target.value)}
                     placeholder="New password"
-                    className="w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                    className="w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-base text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
                   />
                   <label className="sr-only" htmlFor="confirm-password">
                     Confirm new password
                   </label>
                   <input
                     id="confirm-password"
+                    name="confirm-password"
+                    autoComplete="new-password"
                     type="password"
                     minLength={6}
                     value={confirmPassword}
                     onChange={(event) => setConfirmPassword(event.target.value)}
                     placeholder="Confirm new password"
-                    className="w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                    className="w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-base text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
                   />
                   <Button
                     type="submit"
@@ -390,17 +398,21 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                   <input
                     required
                     type="email"
+                    name="invite-email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
                     aria-label="Invite email address"
                     value={inviteEmail}
                     onChange={(event) => setInviteEmail(event.target.value)}
                     placeholder="viewer@studio.com"
-                    className="min-w-0 rounded-lg border border-border bg-background/30 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                    className="min-w-0 rounded-lg border border-border bg-background/30 px-3 py-3 text-base text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
                   />
                   <select
                     aria-label="Invite role"
                     value={inviteRole}
                     onChange={(event) => setInviteRole(event.target.value as "viewer" | "editor")}
-                    className="rounded-lg border border-border bg-background/30 px-3 py-3 text-sm text-foreground transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                    className="rounded-lg border border-border bg-background/30 px-3 py-3 text-base text-foreground transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
                   >
                     <option value="viewer">Viewer</option>
                     <option value="editor">Editor</option>

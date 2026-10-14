@@ -4,10 +4,10 @@ export function renderErrorPage(): string {
   <head>
     <meta charset="utf-8" />
     <title>This page didn't load</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <style>
       * { box-sizing: border-box; }
-      body { font: 15px/1.6 system-ui, -apple-system, sans-serif; background: radial-gradient(ellipse at 50% -5%, #06b6d4 0%, #0f172a 58%, #080f1c 100%); color: #f8fafc; display: grid; place-items: center; min-height: 100vh; margin: 0; padding: 1.5rem; }
+      body { font: 15px/1.6 system-ui, -apple-system, sans-serif; background: radial-gradient(ellipse at 50% -5%, #06b6d4 0%, #0f172a 58%, #080f1c 100%); color: #f8fafc; display: grid; place-items: center; min-height: 100vh; min-height: 100dvh; margin: 0; padding: max(1.5rem, env(safe-area-inset-top)) max(1.5rem, env(safe-area-inset-right)) max(1.5rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left)); }
       .card { max-width: 28rem; width: 100%; text-align: center; padding: 2.5rem 2rem; background: rgba(25, 40, 65, 0.62); border: 1px solid rgba(103, 214, 238, 0.22); border-radius: 1.25rem; box-shadow: 0 18px 55px rgba(0, 0, 0, 0.36); backdrop-filter: blur(18px); }
       .eyebrow { color: #67d6ee; font: 500 0.65rem/1.4 ui-monospace, monospace; letter-spacing: 0.2em; text-transform: uppercase; margin: 0 0 0.8rem; }
       h1 { font-size: 1.55rem; font-weight: 400; letter-spacing: -0.02em; margin: 0 0 0.5rem; }

@@ -334,14 +334,35 @@
 
 @utility video-range {
   appearance: none;
-  height: 3px;
+  height: 44px;
   cursor: pointer;
-  background: color-mix(in oklab, var(--muted-foreground) 30%, transparent);
+  background: transparent;
   accent-color: var(--primary);
+  touch-action: pan-x;
+  &::-webkit-slider-runnable-track {
+    height: 3px;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--muted-foreground) 30%, transparent);
+  }
   &::-webkit-slider-thumb {
     appearance: none;
-    width: 12px;
-    height: 12px;
+    width: 18px;
+    height: 18px;
+    margin-top: -7.5px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--primary);
+    box-shadow: 0 0 16px var(--primary);
+  }
+  &::-moz-range-track {
+    height: 3px;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--muted-foreground) 30%, transparent);
+  }
+  &::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border: 0;
     border-radius: 999px;
     background: var(--primary);
     box-shadow: 0 0 16px var(--primary);
@@ -384,6 +405,130 @@
   50% {
     transform: translate(-50%, -50%) scale(1.35);
     opacity: 0.55;
+  }
+}
+
+.ios-viewport-min {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.ios-login-page {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: max(1.5rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1.5rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+}
+
+.ios-safe-header {
+  padding-top: calc(env(safe-area-inset-top) + 1rem);
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-left: max(1rem, env(safe-area-inset-left));
+}
+
+.ios-safe-corner {
+  top: max(1.25rem, calc(env(safe-area-inset-top) + 0.75rem));
+  left: max(1.25rem, calc(env(safe-area-inset-left) + 0.75rem));
+}
+
+.ios-safe-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-left: max(1rem, env(safe-area-inset-left));
+}
+
+.ios-dialog-panel {
+  max-height: calc(100vh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  max-height: calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ios-drawer-panel {
+  height: 100vh;
+  height: 100dvh;
+  padding-top: max(1.25rem, calc(env(safe-area-inset-top) + 1rem));
+  padding-right: max(1.25rem, env(safe-area-inset-right));
+  padding-bottom: max(1.25rem, calc(env(safe-area-inset-bottom) + 1rem));
+  padding-left: max(1.25rem, env(safe-area-inset-left));
+}
+
+.ios-player-topbar {
+  min-height: calc(4rem + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-left: max(1rem, env(safe-area-inset-left));
+}
+
+.ios-player-controls {
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-left: max(1rem, env(safe-area-inset-left));
+}
+
+.ios-safe-toast {
+  bottom: calc(env(safe-area-inset-bottom) + 1.25rem);
+}
+
+.ios-momentum-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.ios-scroll-x {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scroll-padding-inline: 1rem;
+}
+
+@media (max-height: 38rem) {
+  .ios-login-page {
+    align-items: flex-start;
+  }
+}
+
+@media (min-width: 640px) {
+  .ios-safe-header {
+    padding-top: calc(env(safe-area-inset-top) + 1.5rem);
+    padding-right: max(2rem, env(safe-area-inset-right));
+    padding-left: max(2rem, env(safe-area-inset-left));
+  }
+
+  .ios-safe-overlay {
+    padding-top: max(2rem, env(safe-area-inset-top));
+    padding-right: max(2rem, env(safe-area-inset-right));
+    padding-bottom: max(2rem, env(safe-area-inset-bottom));
+    padding-left: max(2rem, env(safe-area-inset-left));
+  }
+
+  .ios-dialog-panel {
+    max-height: calc(100vh - 4rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 4rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+
+  .ios-drawer-panel {
+    padding-top: max(2rem, calc(env(safe-area-inset-top) + 1.5rem));
+    padding-right: max(2rem, env(safe-area-inset-right));
+    padding-bottom: max(2rem, calc(env(safe-area-inset-bottom) + 1.5rem));
+    padding-left: max(2rem, env(safe-area-inset-left));
+  }
+
+  .ios-player-controls {
+    padding-right: max(2rem, env(safe-area-inset-right));
+    padding-bottom: max(2rem, env(safe-area-inset-bottom));
+    padding-left: max(2rem, env(safe-area-inset-left));
   }
 }
 

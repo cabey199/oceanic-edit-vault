@@ -15,7 +15,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
   return (
-    <div className="ocean-archive relative isolate flex min-h-screen items-center justify-center px-4 text-foreground">
+    <div className="ocean-archive ios-safe-overlay ios-viewport-min relative isolate text-foreground">
       <section className="glass-panel w-full max-w-md p-8 text-center sm:p-10">
         <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-primary">
           Lost at sea
@@ -46,7 +46,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   }, [error]);
 
   return (
-    <div className="ocean-archive relative isolate flex min-h-screen items-center justify-center px-4 text-foreground">
+    <div className="ocean-archive ios-safe-overlay ios-viewport-min relative isolate text-foreground">
       <section className="glass-panel w-full max-w-md p-8 text-center sm:p-10">
         <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-primary">
           Connection interrupted
@@ -83,7 +83,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { name: "theme-color", content: "#0f172a" },
       { title: "chico’s POV — Oceanic Edits Archive" },
       {
         name: "description",
