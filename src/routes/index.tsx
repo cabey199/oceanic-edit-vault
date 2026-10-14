@@ -61,9 +61,10 @@ function PrivateThumbnail({
   alt: string;
   className?: string;
 }) {
-  const [source, setSource] = useState<string | null>(src.startsWith("/api/") ? null : src);
+  const isPrivateMedia = src.includes("/api/archive-items/");
+  const [source, setSource] = useState<string | null>(isPrivateMedia ? null : src);
   useEffect(() => {
-    if (!src.startsWith("/api/")) return;
+    if (!isPrivateMedia) return;
     let active = true;
     void (async () => {
       const {
@@ -77,7 +78,7 @@ function PrivateThumbnail({
     return () => {
       active = false;
     };
-  }, [src]);
+  }, [isPrivateMedia, src]);
   return source ? (
     <img src={source} alt={alt} className={className} />
   ) : (
