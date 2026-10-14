@@ -561,6 +561,7 @@ export function CinematicPlayer({
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [muted, setMuted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const playerSurfaceRef = useRef<HTMLDivElement>(null);
   const [videoSource, setVideoSource] = useState<string | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
   useEffect(() => {
@@ -585,6 +586,11 @@ export function CinematicPlayer({
     })().catch((error: unknown) => {
       setMediaError(error instanceof Error ? error.message : "Video playback failed.");
     });
+  }, [edit]);
+  useEffect(() => {
+    if (!edit) return;
+    const frame = window.requestAnimationFrame(() => playerSurfaceRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
   }, [edit]);
   const formatClock = (seconds: number) =>
     `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
@@ -624,6 +630,7 @@ export function CinematicPlayer({
             </Button>
           </div>
           <motion.div
+            ref={playerSurfaceRef}
             initial={{ scale: 1.02 }}
             animate={{ scale: 1 }}
             onClick={(event) => event.stopPropagation()}
@@ -643,7 +650,7 @@ export function CinematicPlayer({
               }
             }}
             tabIndex={0}
-            className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-background"
+            className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-background outline-none"
           >
             {edit.videoUrl && videoSource ? (
               <video
@@ -679,13 +686,13 @@ export function CinematicPlayer({
                 aria-label={`Play ${edit.title}`}
                 size="icon"
                 onClick={togglePlayback}
-                className="absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/50 bg-background/45 text-primary backdrop-blur-lg hover:bg-primary hover:text-primary-foreground"
+                className="absolute left-1/2 top-1/2 z-20 size-16 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/50 bg-background/45 text-primary backdrop-blur-lg hover:bg-primary hover:text-primary-foreground"
               >
                 <Play className="ml-1 size-6 fill-current" />
               </Button>
             )}
             <div
-              className="absolute inset-x-0 bottom-0 p-4 sm:p-8"
+              className="absolute inset-x-0 bottom-0 z-30 p-4 sm:p-8"
               onClick={(event) => event.stopPropagation()}
               onPointerDown={(event) => event.stopPropagation()}
             >
