@@ -667,7 +667,7 @@ function Index() {
             <motion.div layout className="grid gap-x-6 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
               <AnimatePresence mode="popLayout">
                 {visibleEdits.map((edit, index) => (
-                  <motion.div layout key={edit.id}>
+                  <motion.div layout key={edit.id} className="min-w-0">
                     <motion.article
                       layout
                       initial={{ opacity: 0, y: 30 }}
@@ -676,7 +676,7 @@ function Index() {
                       exit={{ opacity: 0, scale: 0.96 }}
                       transition={{ duration: 0.8, delay: index * 0.055 }}
                       {...(reduceMotion ? {} : { whileHover: { y: -4 } })}
-                      className="glass-card group overflow-hidden"
+                      className="glass-card group min-w-0 max-w-full overflow-hidden"
                     >
                       <div className="relative h-72 min-h-0 overflow-hidden bg-secondary sm:h-64">
                         <PrivateThumbnail
@@ -787,10 +787,12 @@ function Index() {
                           </div>
                         )}
                       </div>
-                      <div className="p-5">
+                      <div className="min-w-0 p-5">
                         <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <h3 className="font-display text-2xl">{edit.title}</h3>
+                          <div className="min-w-0">
+                            <h3 className="break-words font-display text-2xl leading-tight">
+                              {edit.title}
+                            </h3>
                             <p className="mt-1 text-xs text-muted-foreground">{edit.note}</p>
                           </div>
                           <span className="shrink-0 border border-border px-2 py-1 font-mono text-[9px] text-muted-foreground">
