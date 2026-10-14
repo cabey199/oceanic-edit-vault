@@ -678,9 +678,7 @@ function Index() {
                       {...(reduceMotion ? {} : { whileHover: { y: -4 } })}
                       className="glass-card group overflow-hidden"
                     >
-                      <div
-                        className={`relative min-h-0 overflow-hidden bg-secondary ${edit.format === "9:16" ? "h-[28rem] sm:h-[25rem]" : "h-72 sm:h-64"}`}
-                      >
+                      <div className="relative h-52 min-h-0 overflow-hidden bg-secondary sm:h-64">
                         <PrivateThumbnail
                           src={edit.image}
                           alt={`${edit.title} video thumbnail`}
@@ -701,6 +699,50 @@ function Index() {
                             {edit.duration}
                           </span>
                         </div>
+                        {edit.videoUrl && (
+                          <div className="absolute bottom-3 left-3 z-30 flex gap-1 rounded-full border border-border/70 bg-background/85 p-1 shadow-lg backdrop-blur-md">
+                            <Button
+                              title="Open video"
+                              aria-label={`Open ${edit.title}`}
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setSelected(edit)}
+                              className="size-9 text-foreground hover:bg-primary/20 hover:text-primary"
+                            >
+                              <Expand className="size-4" />
+                            </Button>
+                            <Button
+                              title="Share edit"
+                              aria-label={`Share ${edit.title}`}
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => void shareEdit(edit)}
+                              className="size-9 text-foreground hover:bg-primary/20 hover:text-primary"
+                            >
+                              <Share2 className="size-4" />
+                            </Button>
+                            <Button
+                              title="Download MP4"
+                              aria-label={`Download ${edit.title}`}
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => void downloadEdit(edit)}
+                              className="size-9 text-foreground hover:bg-primary/20 hover:text-primary"
+                            >
+                              <Download className="size-4" />
+                            </Button>
+                            <Button
+                              title="Delete upload"
+                              aria-label={`Delete ${edit.title}`}
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => void deleteEdit(edit)}
+                              className="size-9 text-foreground hover:bg-destructive/20 hover:text-destructive"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
+                        )}
                         <span className="play-pulse absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
                         <Button
                           aria-label={`Play ${edit.title}`}
