@@ -678,11 +678,11 @@ function Index() {
                       {...(reduceMotion ? {} : { whileHover: { y: -4 } })}
                       className="glass-card group overflow-hidden"
                     >
-                      <div className="relative h-52 min-h-0 overflow-hidden bg-secondary sm:h-64">
+                      <div className="relative h-72 min-h-0 overflow-hidden bg-secondary sm:h-64">
                         <PrivateThumbnail
                           src={edit.image}
                           alt={`${edit.title} video thumbnail`}
-                          className="absolute inset-0 h-full w-full object-cover opacity-70 transition-all duration-[900ms] ease-out group-hover:scale-[1.03] group-hover:opacity-100"
+                          className="absolute inset-0 h-full w-full object-contain opacity-80 transition-all duration-[900ms] ease-out group-hover:scale-[1.02] group-hover:opacity-100"
                         />
                         <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--card),transparent_55%)] opacity-70" />
                         <div className="absolute left-4 top-4 border border-border bg-background/55 px-2.5 py-1 font-mono text-[9px] tracking-[0.15em] text-foreground backdrop-blur-md">
