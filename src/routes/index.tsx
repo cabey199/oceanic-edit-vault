@@ -390,7 +390,7 @@ function Index() {
   }, []);
 
   const uploadOriginalEdit = useCallback(
-    async (original: File) => {
+    async (original: File, title: string) => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -399,7 +399,7 @@ function Index() {
       const form = new FormData();
       form.set("file", original, original.name);
       form.set("thumbnail", thumbnail.file);
-      form.set("title", original.name.replace(/\.[^/.]+$/, ""));
+      form.set("title", title);
       form.set("width", String(thumbnail.width));
       form.set("height", String(thumbnail.height));
       form.set("duration", String(thumbnail.duration));

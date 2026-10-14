@@ -27,6 +27,7 @@ type RuntimeEnv = {
   VITE_SUPABASE_URL?: string;
   VITE_SUPABASE_ANON_KEY?: string;
   MEDIA_BUCKET?: MediaBucket;
+  ARCHIVE_STORAGE_LIMIT_BYTES?: string;
 };
 
 type InvitePayload = { email?: unknown; role?: unknown };
@@ -247,7 +248,13 @@ async function getArchiveStats(request: Request, env: RuntimeEnv) {
     .eq("archived", false)
     .neq("status", "failed");
   if (countError) return json({ error: countError.message }, 500);
-  return json({ ...stats, itemCount: count ?? 0 });
+  const storageLimitBytes = Number(env.ARCHIVE_STORAGE_LIMIT_BYTES) || 0;
+  return json({
+    ...stats,
+    itemCount: count ?? 0,
+    storageLimitBytes,
+    remainingBytes: storageLimitBytes ? Math.max(0, storageLimitBytes - stats.totalBytes) : null,
+  });
 }
 
 async function createArchiveItem(request: Request, env: RuntimeEnv) {

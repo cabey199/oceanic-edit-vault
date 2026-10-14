@@ -18,6 +18,8 @@ type ArchiveStats = {
   itemCount: number;
   r2Bytes: number;
   b2Bytes: number;
+  storageLimitBytes: number;
+  remainingBytes: number | null;
 };
 
 const formatBytes = (bytes: number) => {
@@ -196,7 +198,7 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                   R2 primary
                 </span>
               </div>
-              <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
                 <div>
                   <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
                     Used
@@ -229,7 +231,25 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                     {statsBusy ? "…" : formatBytes(stats?.b2Bytes ?? 0)}
                   </p>
                 </div>
+                <div>
+                  <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
+                    Remaining
+                  </p>
+                  <p className="mt-2 text-lg text-foreground">
+                    {statsBusy
+                      ? "…"
+                      : stats?.remainingBytes === null || stats?.remainingBytes === undefined
+                        ? "Not set"
+                        : formatBytes(stats.remainingBytes)}
+                  </p>
+                </div>
               </div>
+              {stats && stats.storageLimitBytes === 0 && (
+                <p className="mt-4 text-xs text-muted-foreground">
+                  Storage capacity has not been configured yet. Used space is live; remaining space
+                  will appear after the archive quota is set.
+                </p>
+              )}
             </section>
 
             <div className="grid gap-4 p-4 sm:grid-cols-2 sm:p-8">

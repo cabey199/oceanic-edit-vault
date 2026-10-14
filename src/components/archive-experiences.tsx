@@ -41,7 +41,7 @@ type UploadDrawerProps = {
   open: boolean;
   onClose: () => void;
   onComplete: (message: string) => void;
-  onUpload?: (original: File) => Promise<void>;
+  onUpload?: (original: File, title: string) => Promise<void>;
 };
 
 type UploadPhase = "idle" | "uploading" | "ready" | "error";
@@ -60,6 +60,7 @@ export function UploadDrawer({
 }: UploadDrawerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [title, setTitle] = useState("");
   const [phase, setPhase] = useState<UploadPhase>("idle");
   const [progress, setProgress] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -71,7 +72,8 @@ export function UploadDrawer({
     setProgress(0.05);
     setPhase("uploading");
     try {
-      if (onUpload) await onUpload(selectedFile);
+      if (onUpload)
+        await onUpload(selectedFile, title.trim() || selectedFile.name.replace(/\.[^/.]+$/, ""));
       setProgress(1);
       setPhase("ready");
       onComplete(`${selectedFile.name} stored at original quality`);
@@ -101,6 +103,7 @@ export function UploadDrawer({
   };
   const reset = () => {
     setFile(null);
+    setTitle("");
     setError(null);
     setProgress(0);
     setPhase("idle");
@@ -181,6 +184,18 @@ export function UploadDrawer({
                 Browse files
               </Button>
             </div>
+
+            <label className="mt-5 block text-left">
+              <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
+                Video name
+              </span>
+              <input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Give this memory a name"
+                className="mt-2 w-full border border-border bg-background/40 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+              />
+            </label>
 
             <AnimatePresence mode="wait">
               {file ? (
@@ -620,7 +635,7 @@ export function CinematicPlayer({
                 ref={videoRef}
                 playsInline
                 preload="metadata"
-                className="h-full w-full object-contain"
+                className="max-h-full max-w-full object-contain"
                 onPlay={() => setPlaying(true)}
                 onPause={() => setPlaying(false)}
                 onLoadedMetadata={(event) => setDurationSeconds(event.currentTarget.duration)}
