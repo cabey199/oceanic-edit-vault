@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Lock, LogIn, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 
@@ -15,6 +15,7 @@ function LoginComponent() {
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -41,13 +42,13 @@ function LoginComponent() {
   };
 
   return (
-    <main className="ocean-archive relative isolate flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 text-foreground">
+    <main className="ocean-archive ios-login-page relative isolate overflow-x-hidden bg-background text-foreground">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.08)_0%,transparent_70%)]" />
 
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={reduceMotion ? false : { opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
+        transition={{ duration: reduceMotion ? 0 : 0.45 }}
         className="glass-panel w-full max-w-md p-8 sm:p-10"
       >
         <div className="mb-8 text-center">
@@ -65,9 +66,11 @@ function LoginComponent() {
 
         {errorMsg && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
+            role="alert"
+            aria-live="assertive"
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="mb-6 flex items-start gap-3 border border-destructive/40 bg-destructive/10 p-3.5 text-xs text-destructive"
+            className="mb-6 flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3.5 text-xs leading-5 text-destructive"
           >
             <ShieldAlert className="size-4 shrink-0 mt-0.5" />
             <span>{errorMsg}</span>
@@ -76,37 +79,51 @@ function LoginComponent() {
 
         <form onSubmit={handleLogin} className="space-y-5">
           <div className="space-y-2">
-            <label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            <label
+              htmlFor="login-email"
+              className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
+            >
               Email Address
             </label>
             <input
+              id="login-email"
+              name="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="access@vault.com"
               required
-              className="w-full border border-border bg-card/50 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="h-12 w-full rounded-lg border border-border bg-card/50 px-4 text-base text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            <label
+              htmlFor="login-password"
+              className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
+            >
               Passcode
             </label>
             <input
+              id="login-password"
+              autoComplete="current-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
-              className="w-full border border-border bg-card/50 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="h-12 w-full rounded-lg border border-border bg-card/50 px-4 text-base text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
             />
           </div>
 
           <Button
             type="submit"
             disabled={loading}
-            className="w-full h-11 border border-primary/40 bg-primary/10 font-mono text-[10px] uppercase tracking-[0.2em] text-primary shadow-[0_0_24px_var(--primary-glow)] hover:bg-primary hover:text-primary-foreground"
+            className="h-12 w-full border border-primary/40 bg-primary/10 font-mono text-[10px] uppercase tracking-[0.2em] text-primary shadow-[0_0_24px_var(--primary-glow)] hover:bg-primary hover:text-primary-foreground"
           >
             {loading ? (
               "Authenticating..."

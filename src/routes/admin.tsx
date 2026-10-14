@@ -43,7 +43,7 @@ export const Route = createFileRoute("/admin")({
 function AdminPage() {
   return (
     <div className="relative">
-      <div className="absolute left-5 top-5 z-10 flex items-center gap-3 sm:left-8 sm:top-8">
+      <div className="ios-safe-corner absolute z-10 flex items-center gap-3">
         <Button asChild variant="ghost">
           <Link to="/">
             <ArrowLeft /> Archive

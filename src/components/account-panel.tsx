@@ -42,6 +42,7 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [stats, setStats] = useState<ArchiveStats | null>(null);
   const [statsBusy, setStatsBusy] = useState(false);
+  const [statsError, setStatsError] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -50,14 +51,25 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
       if (active) setEmail(data.user?.email ?? "");
     });
     setStatsBusy(true);
-    void supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) return;
-      const response = await fetch("/api/archive-stats", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
+    setStatsError(false);
+    void supabase.auth
+      .getSession()
+      .then(async ({ data: { session } }) => {
+        if (!session) throw new Error("Session unavailable.");
+        const response = await fetch("/api/archive-stats", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (!response.ok) throw new Error("Archive metrics unavailable.");
+        const nextStats = (await response.json()) as ArchiveStats;
+        if (active) setStats(nextStats);
+        if (active) setStatsBusy(false);
+      })
+      .catch(() => {
+        if (active) {
+          setStatsError(true);
+          setStatsBusy(false);
+        }
       });
-      if (response.ok && active) setStats((await response.json()) as ArchiveStats);
-      if (active) setStatsBusy(false);
-    });
     return () => {
       active = false;
     };
@@ -145,7 +157,7 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 bg-background/80 p-4 backdrop-blur-xl sm:p-8"
+          className="ios-safe-overlay fixed inset-0 z-50 bg-background/80 backdrop-blur-xl"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -159,7 +171,7 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
             onClick={(event) => event.stopPropagation()}
-            className="glass-panel mx-auto flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-y-auto sm:my-8 sm:max-h-[calc(100vh-4rem)]"
+            className="ios-dialog-panel glass-panel mx-auto my-auto flex w-full max-w-4xl flex-col overflow-y-auto"
           >
             <header className="flex items-start justify-between gap-5 border-b border-border p-6 sm:p-8">
               <div>
@@ -198,49 +210,66 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                   R2 primary
                 </span>
               </div>
-              <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
+              <div
+                aria-live="polite"
+                className="mt-6 grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 xl:grid-cols-5"
+              >
                 <div>
-                  <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
                     Used
                   </p>
                   <p className="mt-2 text-lg text-foreground">
-                    {statsBusy ? "…" : formatBytes(stats?.totalBytes ?? 0)}
+                    {statsBusy
+                      ? "…"
+                      : statsError
+                        ? "Unavailable"
+                        : formatBytes(stats?.totalBytes ?? 0)}
                   </p>
                 </div>
                 <div>
-                  <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
                     Original videos
                   </p>
                   <p className="mt-2 text-lg text-foreground">
-                    {statsBusy ? "…" : formatBytes(stats?.originalBytes ?? 0)}
+                    {statsBusy
+                      ? "…"
+                      : statsError
+                        ? "Unavailable"
+                        : formatBytes(stats?.originalBytes ?? 0)}
                   </p>
                 </div>
                 <div>
-                  <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
                     Uploads
                   </p>
                   <p className="mt-2 text-lg text-foreground">
-                    {statsBusy ? "…" : (stats?.itemCount ?? 0)}
+                    {statsBusy ? "…" : statsError ? "Unavailable" : (stats?.itemCount ?? 0)}
                   </p>
                 </div>
                 <div>
-                  <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
                     Backup
                   </p>
                   <p className="mt-2 text-lg text-foreground">
-                    {statsBusy ? "…" : formatBytes(stats?.b2Bytes ?? 0)}
+                    {statsBusy
+                      ? "…"
+                      : statsError
+                        ? "Unavailable"
+                        : formatBytes(stats?.b2Bytes ?? 0)}
                   </p>
                 </div>
                 <div>
-                  <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
                     Remaining
                   </p>
                   <p className="mt-2 text-lg text-foreground">
                     {statsBusy
                       ? "…"
-                      : stats?.remainingBytes === null || stats?.remainingBytes === undefined
-                        ? "Not set"
-                        : formatBytes(stats.remainingBytes)}
+                      : statsError
+                        ? "Unavailable"
+                        : stats?.remainingBytes === null || stats?.remainingBytes === undefined
+                          ? "Not set"
+                          : formatBytes(stats.remainingBytes)}
                   </p>
                 </div>
               </div>
@@ -273,11 +302,15 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                   </label>
                   <input
                     id="new-email"
+                    name="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
                     type="email"
                     value={newEmail}
                     onChange={(event) => setNewEmail(event.target.value)}
                     placeholder="new@address.com"
-                    className="w-full border border-border bg-background/40 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                    className="w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-base text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
                   />
                   <Button
                     type="submit"
@@ -306,24 +339,28 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                   </label>
                   <input
                     id="new-password"
+                    name="new-password"
+                    autoComplete="new-password"
                     type="password"
                     minLength={6}
                     value={newPassword}
                     onChange={(event) => setNewPassword(event.target.value)}
                     placeholder="New password"
-                    className="w-full border border-border bg-background/40 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                    className="w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-base text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
                   />
                   <label className="sr-only" htmlFor="confirm-password">
                     Confirm new password
                   </label>
                   <input
                     id="confirm-password"
+                    name="confirm-password"
+                    autoComplete="new-password"
                     type="password"
                     minLength={6}
                     value={confirmPassword}
                     onChange={(event) => setConfirmPassword(event.target.value)}
                     placeholder="Confirm new password"
-                    className="w-full border border-border bg-background/40 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                    className="w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-base text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
                   />
                   <Button
                     type="submit"
@@ -361,17 +398,21 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                   <input
                     required
                     type="email"
+                    name="invite-email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
                     aria-label="Invite email address"
                     value={inviteEmail}
                     onChange={(event) => setInviteEmail(event.target.value)}
                     placeholder="viewer@studio.com"
-                    className="border border-border bg-background/30 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                    className="min-w-0 rounded-lg border border-border bg-background/30 px-3 py-3 text-base text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
                   />
                   <select
                     aria-label="Invite role"
                     value={inviteRole}
                     onChange={(event) => setInviteRole(event.target.value as "viewer" | "editor")}
-                    className="border border-border bg-background/30 px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none"
+                    className="rounded-lg border border-border bg-background/30 px-3 py-3 text-base text-foreground transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
                   >
                     <option value="viewer">Viewer</option>
                     <option value="editor">Editor</option>
@@ -387,7 +428,9 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                 </form>
                 {inviteFeedback && (
                   <p
-                    className={`mt-3 text-xs ${inviteFeedback.kind === "success" ? "text-primary" : "text-destructive"}`}
+                    role={inviteFeedback.kind === "success" ? "status" : "alert"}
+                    aria-live={inviteFeedback.kind === "success" ? "polite" : "assertive"}
+                    className={`mt-3 text-xs leading-5 ${inviteFeedback.kind === "success" ? "text-primary" : "text-destructive"}`}
                   >
                     {inviteFeedback.message}
                   </p>
@@ -409,7 +452,9 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
             </footer>
             {feedback && (
               <div
-                className={`mx-6 mb-6 flex items-center gap-2 border p-3 text-xs sm:mx-8 ${feedback.kind === "success" ? "border-primary/30 bg-primary/5 text-primary" : "border-destructive/30 bg-destructive/10 text-destructive"}`}
+                role={feedback.kind === "success" ? "status" : "alert"}
+                aria-live={feedback.kind === "success" ? "polite" : "assertive"}
+                className={`mx-6 mb-6 flex items-start gap-2 rounded-lg border p-3 text-xs leading-5 sm:mx-8 ${feedback.kind === "success" ? "border-primary/30 bg-primary/5 text-primary" : "border-destructive/30 bg-destructive/10 text-destructive"}`}
               >
                 {feedback.kind === "success" ? (
                   <Check className="size-4" />

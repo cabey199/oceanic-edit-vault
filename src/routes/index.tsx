@@ -12,7 +12,6 @@ import {
   Cat,
   Check,
   Download,
-  Expand,
   Heart,
   LockKeyhole,
   Moon,
@@ -21,6 +20,7 @@ import {
   Sun,
   Trash2,
   Upload,
+  Video,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -238,6 +238,7 @@ function Index() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [developerVault, setDeveloperVault] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [archiveStatus, setArchiveStatus] = useState<"loading" | "ready" | "error">("loading");
   const [theme, setTheme] = useState<OceanTheme>("calm");
   const { scrollY } = useScroll();
   const surfaceTide = useMotionValue(0);
@@ -269,46 +270,55 @@ function Index() {
   });
 
   const loadArchive = useCallback(async () => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) return;
-    const response = await fetch("/api/archive-items", {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    if (!response.ok) return;
-    const payload = (await response.json()) as {
-      items?: Array<{
-        id: string;
-        title: string;
-        note: string;
-        format: "9:16" | "16:9";
-        duration: number;
-        favorite: boolean;
-        size: number;
-        thumbnailUrl: string;
-        mediaUrl: string;
-        downloadUrl: string;
-      }>;
-    };
-    if (!payload.items) return;
-    setArchiveEdits(
-      payload.items.map((item) => ({
-        id: item.id,
-        title: item.title,
-        note: item.note,
-        image: item.thumbnailUrl,
-        size: formatBytes(item.size),
-        date: new Date()
-          .toLocaleDateString(undefined, { month: "short", day: "2-digit", year: "numeric" })
-          .toUpperCase(),
-        duration: formatDuration(item.duration),
-        format: item.format,
-        favorite: item.favorite,
-        videoUrl: item.mediaUrl,
-        downloadUrl: item.downloadUrl,
-      })),
-    );
+    setArchiveStatus("loading");
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        setArchiveStatus("ready");
+        return;
+      }
+      const response = await fetch("/api/archive-items", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!response.ok) throw new Error("Archive request failed.");
+      const payload = (await response.json()) as {
+        items?: Array<{
+          id: string;
+          title: string;
+          note: string;
+          format: "9:16" | "16:9";
+          duration: number;
+          favorite: boolean;
+          size: number;
+          thumbnailUrl: string;
+          mediaUrl: string;
+          downloadUrl: string;
+        }>;
+      };
+      if (!payload.items) throw new Error("Archive response was incomplete.");
+      setArchiveEdits(
+        payload.items.map((item) => ({
+          id: item.id,
+          title: item.title,
+          note: item.note,
+          image: item.thumbnailUrl,
+          size: formatBytes(item.size),
+          date: new Date()
+            .toLocaleDateString(undefined, { month: "short", day: "2-digit", year: "numeric" })
+            .toUpperCase(),
+          duration: formatDuration(item.duration),
+          format: item.format,
+          favorite: item.favorite,
+          videoUrl: item.mediaUrl,
+          downloadUrl: item.downloadUrl,
+        })),
+      );
+      setArchiveStatus("ready");
+    } catch {
+      setArchiveStatus("error");
+    }
   }, []);
 
   useEffect(() => {
@@ -509,7 +519,7 @@ function Index() {
   return (
     <main
       data-ocean-theme={theme}
-      className="ocean-archive relative isolate min-h-screen overflow-hidden bg-background text-foreground"
+      className="ocean-archive ios-viewport-min relative isolate overflow-hidden bg-background text-foreground"
     >
       <motion.div
         className="pointer-events-none fixed inset-[-15vh] -z-10"
@@ -519,20 +529,20 @@ function Index() {
       </motion.div>
       <motion.header
         style={{ y: surfaceTide }}
-        className="fixed inset-x-0 top-0 z-40 px-4 pt-4 sm:px-8 sm:pt-6"
+        className="ios-safe-header fixed inset-x-0 top-0 z-40"
       >
-        <nav className="glass-panel mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+        <nav className="glass-panel mx-auto flex h-14 max-w-7xl items-center justify-between px-3 sm:h-16 sm:px-6">
           <a
             href="#top"
-            className="flex items-center gap-3 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground sm:text-xs"
+            className="flex min-w-0 items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground sm:gap-3 sm:text-xs sm:tracking-[0.22em]"
           >
             <span className="relative flex size-2">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" />
               <span className="relative inline-flex size-2 rounded-full bg-primary shadow-[0_0_14px_var(--primary)]" />
             </span>
-            <span className="ocean-brand">chico’s POV</span>
+            <span className="ocean-brand truncate whitespace-nowrap">chico’s POV</span>
           </a>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <Button
               aria-label={
                 theme === "calm" ? "Switch to Wavy Night theme" : "Switch to Calm Day theme"
@@ -548,7 +558,7 @@ function Index() {
             <Button
               variant="outline"
               onClick={() => setUploadOpen(true)}
-              className="h-10 border-primary/40 bg-primary/5 px-3 text-[11px] uppercase tracking-[0.16em] text-primary hover:border-primary hover:bg-primary/10 hover:text-primary sm:px-5"
+              className="h-11 border-primary/40 bg-primary/5 px-2 text-[10px] uppercase tracking-[0.12em] text-primary hover:border-primary hover:bg-primary/10 hover:text-primary sm:px-5 sm:text-[11px] sm:tracking-[0.16em]"
             >
               <Upload className="size-3.5" />{" "}
               <span className="hidden sm:inline">Upload new edit</span>
@@ -646,25 +656,42 @@ function Index() {
             </div>
 
             <div
-              className="no-scrollbar my-8 flex gap-2 overflow-x-auto pb-2"
-              role="tablist"
+              className="ios-scroll-x no-scrollbar my-8 flex gap-2 overflow-x-auto pb-2"
+              role="group"
               aria-label="Filter edits"
             >
               {filters.map((filter) => (
                 <Button
                   key={filter}
-                  role="tab"
-                  aria-selected={activeFilter === filter}
+                  aria-pressed={activeFilter === filter}
                   variant="ghost"
                   onClick={() => setActiveFilter(filter)}
-                  className={`shrink-0 rounded-full border px-4 font-mono text-[10px] uppercase tracking-[0.12em] ${activeFilter === filter ? "border-primary bg-primary/10 text-primary" : "border-border bg-card/30 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"}`}
+                  className={`min-h-11 shrink-0 rounded-full border px-4 font-mono text-[10px] uppercase tracking-[0.12em] ${activeFilter === filter ? "border-primary bg-primary/10 text-primary shadow-[0_0_18px_var(--primary-glow)]" : "border-border bg-card/30 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"}`}
                 >
                   {filter}
                 </Button>
               ))}
             </div>
 
-            <motion.div layout className="grid gap-x-6 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
+            {archiveStatus !== "ready" && (
+              <div
+                role={archiveStatus === "error" ? "alert" : "status"}
+                aria-live={archiveStatus === "error" ? "assertive" : "polite"}
+                className={`mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm ${archiveStatus === "error" ? "border-destructive/30 bg-destructive/5 text-foreground" : "border-border bg-card/30 text-muted-foreground"}`}
+              >
+                <span>
+                  {archiveStatus === "error"
+                    ? "The archive could not be refreshed. Available edits remain on screen."
+                    : "Loading your archive…"}
+                </span>
+                {archiveStatus === "error" && (
+                  <Button variant="ghost" size="sm" onClick={() => void loadArchive()}>
+                    Try again
+                  </Button>
+                )}
+              </div>
+            )}
+            <motion.div layout className="grid gap-x-6 gap-y-8 md:grid-cols-2 lg:grid-cols-3">
               <AnimatePresence mode="popLayout">
                 {visibleEdits.map((edit, index) => (
                   <motion.div layout key={edit.id} className="min-w-0">
@@ -678,7 +705,7 @@ function Index() {
                       {...(reduceMotion ? {} : { whileHover: { y: -4 } })}
                       className="glass-card group min-w-0 max-w-full overflow-hidden"
                     >
-                      <div className="relative h-72 min-h-0 overflow-hidden bg-secondary sm:h-64">
+                      <div className="relative h-72 min-h-0 overflow-hidden rounded-t-[inherit] bg-secondary sm:h-64">
                         <PrivateThumbnail
                           src={edit.image}
                           alt={`${edit.title} video thumbnail`}
@@ -699,56 +726,12 @@ function Index() {
                             {edit.duration}
                           </span>
                         </div>
-                        {edit.videoUrl && (
-                          <div className="absolute bottom-3 left-3 z-30 flex gap-1 rounded-full border border-border/70 bg-background/85 p-1 shadow-lg backdrop-blur-md">
-                            <Button
-                              title="Open video"
-                              aria-label={`Open ${edit.title}`}
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setSelected(edit)}
-                              className="size-9 text-foreground hover:bg-primary/20 hover:text-primary"
-                            >
-                              <Expand className="size-4" />
-                            </Button>
-                            <Button
-                              title="Share edit"
-                              aria-label={`Share ${edit.title}`}
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => void shareEdit(edit)}
-                              className="size-9 text-foreground hover:bg-primary/20 hover:text-primary"
-                            >
-                              <Share2 className="size-4" />
-                            </Button>
-                            <Button
-                              title="Download MP4"
-                              aria-label={`Download ${edit.title}`}
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => void downloadEdit(edit)}
-                              className="size-9 text-foreground hover:bg-primary/20 hover:text-primary"
-                            >
-                              <Download className="size-4" />
-                            </Button>
-                            <Button
-                              title="Delete upload"
-                              aria-label={`Delete ${edit.title}`}
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => void deleteEdit(edit)}
-                              className="size-9 text-foreground hover:bg-destructive/20 hover:text-destructive"
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          </div>
-                        )}
                         <span className="play-pulse absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
                         <Button
                           aria-label={`Play ${edit.title}`}
                           onClick={() => setSelected(edit)}
                           size="icon"
-                          className="absolute left-1/2 top-1/2 size-12 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/70 bg-background/55 text-primary opacity-100 shadow-[0_0_30px_var(--primary-glow)] backdrop-blur-xl transition-all duration-500 hover:scale-110 hover:bg-primary hover:text-primary-foreground sm:opacity-0 sm:group-hover:opacity-100"
+                          className="absolute left-1/2 top-1/2 size-12 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/70 bg-background/55 text-primary opacity-100 shadow-[0_0_30px_var(--primary-glow)] backdrop-blur-xl transition-all duration-500 hover:scale-110 hover:bg-primary hover:text-primary-foreground sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
                         >
                           <Play className="ml-0.5 size-4 fill-current" />
                         </Button>
@@ -760,7 +743,7 @@ function Index() {
                               variant="ghost"
                               size="icon"
                               onClick={() => void shareEdit(edit)}
-                              className="size-9 text-foreground hover:bg-primary/20 hover:text-primary"
+                              className="size-11 text-foreground hover:bg-primary/20 hover:text-primary"
                             >
                               <Share2 className="size-4" />
                             </Button>
@@ -770,7 +753,7 @@ function Index() {
                               variant="ghost"
                               size="icon"
                               onClick={() => void downloadEdit(edit)}
-                              className="size-9 text-foreground hover:bg-primary/20 hover:text-primary"
+                              className="size-11 text-foreground hover:bg-primary/20 hover:text-primary"
                             >
                               <Download className="size-4" />
                             </Button>
@@ -780,7 +763,7 @@ function Index() {
                               variant="ghost"
                               size="icon"
                               onClick={() => void deleteEdit(edit)}
-                              className="size-9 text-foreground hover:bg-destructive/20 hover:text-destructive"
+                              className="size-11 text-foreground hover:bg-destructive/20 hover:text-destructive"
                             >
                               <Trash2 className="size-4" />
                             </Button>
@@ -803,54 +786,36 @@ function Index() {
                           <span className="font-mono text-[9px] tracking-[0.13em] text-muted-foreground">
                             {edit.date}
                           </span>
-                          <div className="flex gap-1">
-                            <Button
-                              title="Watch fullscreen"
-                              aria-label={`Watch ${edit.title} fullscreen`}
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setSelected(edit)}
-                              className="text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                            >
-                              <Expand />
-                            </Button>
-                            <Button
-                              title="Download MP4"
-                              aria-label={`Download ${edit.title}`}
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => void downloadEdit(edit)}
-                              className="text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                            >
-                              <Download />
-                            </Button>
-                            <Button
-                              title="Share edit"
-                              aria-label={`Share ${edit.title}`}
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => void shareEdit(edit)}
-                              className="text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                            >
-                              <Share2 />
-                            </Button>
-                            <Button
-                              title="Delete upload"
-                              aria-label={`Delete ${edit.title}`}
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => void deleteEdit(edit)}
-                              className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                            >
-                              <Trash2 />
-                            </Button>
-                          </div>
                         </div>
                       </div>
                     </motion.article>
                   </motion.div>
                 ))}
               </AnimatePresence>
+              {archiveStatus === "ready" && visibleEdits.length === 0 && (
+                <div className="glass-panel col-span-full mx-auto flex w-full max-w-xl flex-col items-center px-6 py-12 text-center sm:px-10">
+                  <div className="flex size-12 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary">
+                    <Video className="size-5" />
+                  </div>
+                  <h3 className="mt-5 font-display text-3xl">
+                    {archiveEdits.length === 0 ? "Your archive is ready" : "No edits in this view"}
+                  </h3>
+                  <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+                    {archiveEdits.length === 0
+                      ? "Upload a video to begin building your private collection."
+                      : "Try another filter to find the edit you’re looking for."}
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      archiveEdits.length === 0 ? setUploadOpen(true) : setActiveFilter("All Edits")
+                    }
+                    className="mt-6 border-primary/40 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary"
+                  >
+                    {archiveEdits.length === 0 ? "Upload your first edit" : "Show all edits"}
+                  </Button>
+                </div>
+              )}
             </motion.div>
           </div>
         </motion.section>
@@ -909,7 +874,7 @@ function Index() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-5 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-2 border border-primary/30 bg-card/95 px-4 py-3 text-xs text-foreground shadow-[0_0_30px_var(--primary-glow)] backdrop-blur-xl"
+            className="ios-safe-toast fixed left-1/2 z-[60] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-xl border border-primary/30 bg-card/95 px-4 py-3 text-xs text-foreground shadow-[0_0_30px_var(--primary-glow)] backdrop-blur-xl"
           >
             <Check className="size-4 text-primary" />
             {notice}
