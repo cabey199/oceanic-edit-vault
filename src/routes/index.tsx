@@ -679,8 +679,7 @@ function Index() {
                       className="glass-card group overflow-hidden"
                     >
                       <div
-                        style={{ aspectRatio: edit.format === "9:16" ? "9 / 16" : "16 / 9" }}
-                        className="relative min-h-0 overflow-hidden bg-secondary"
+                        className={`relative min-h-0 overflow-hidden bg-secondary ${edit.format === "9:16" ? "h-[28rem] sm:h-[25rem]" : "h-72 sm:h-64"}`}
                       >
                         <PrivateThumbnail
                           src={edit.image}
