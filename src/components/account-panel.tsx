@@ -42,6 +42,7 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [stats, setStats] = useState<ArchiveStats | null>(null);
   const [statsBusy, setStatsBusy] = useState(false);
+  const [statsError, setStatsError] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -50,14 +51,25 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
       if (active) setEmail(data.user?.email ?? "");
     });
     setStatsBusy(true);
-    void supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) return;
-      const response = await fetch("/api/archive-stats", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
+    setStatsError(false);
+    void supabase.auth
+      .getSession()
+      .then(async ({ data: { session } }) => {
+        if (!session) throw new Error("Session unavailable.");
+        const response = await fetch("/api/archive-stats", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (!response.ok) throw new Error("Archive metrics unavailable.");
+        const nextStats = (await response.json()) as ArchiveStats;
+        if (active) setStats(nextStats);
+        if (active) setStatsBusy(false);
+      })
+      .catch(() => {
+        if (active) {
+          setStatsError(true);
+          setStatsBusy(false);
+        }
       });
-      if (response.ok && active) setStats((await response.json()) as ArchiveStats);
-      if (active) setStatsBusy(false);
-    });
     return () => {
       active = false;
     };
@@ -198,49 +210,66 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                   R2 primary
                 </span>
               </div>
-              <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
+              <div
+                aria-live="polite"
+                className="mt-6 grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 xl:grid-cols-5"
+              >
                 <div>
-                  <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
                     Used
                   </p>
                   <p className="mt-2 text-lg text-foreground">
-                    {statsBusy ? "…" : formatBytes(stats?.totalBytes ?? 0)}
+                    {statsBusy
+                      ? "…"
+                      : statsError
+                        ? "Unavailable"
+                        : formatBytes(stats?.totalBytes ?? 0)}
                   </p>
                 </div>
                 <div>
-                  <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
                     Original videos
                   </p>
                   <p className="mt-2 text-lg text-foreground">
-                    {statsBusy ? "…" : formatBytes(stats?.originalBytes ?? 0)}
+                    {statsBusy
+                      ? "…"
+                      : statsError
+                        ? "Unavailable"
+                        : formatBytes(stats?.originalBytes ?? 0)}
                   </p>
                 </div>
                 <div>
-                  <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
                     Uploads
                   </p>
                   <p className="mt-2 text-lg text-foreground">
-                    {statsBusy ? "…" : (stats?.itemCount ?? 0)}
+                    {statsBusy ? "…" : statsError ? "Unavailable" : (stats?.itemCount ?? 0)}
                   </p>
                 </div>
                 <div>
-                  <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
                     Backup
                   </p>
                   <p className="mt-2 text-lg text-foreground">
-                    {statsBusy ? "…" : formatBytes(stats?.b2Bytes ?? 0)}
+                    {statsBusy
+                      ? "…"
+                      : statsError
+                        ? "Unavailable"
+                        : formatBytes(stats?.b2Bytes ?? 0)}
                   </p>
                 </div>
                 <div>
-                  <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
                     Remaining
                   </p>
                   <p className="mt-2 text-lg text-foreground">
                     {statsBusy
                       ? "…"
-                      : stats?.remainingBytes === null || stats?.remainingBytes === undefined
-                        ? "Not set"
-                        : formatBytes(stats.remainingBytes)}
+                      : statsError
+                        ? "Unavailable"
+                        : stats?.remainingBytes === null || stats?.remainingBytes === undefined
+                          ? "Not set"
+                          : formatBytes(stats.remainingBytes)}
                   </p>
                 </div>
               </div>
@@ -277,7 +306,7 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                     value={newEmail}
                     onChange={(event) => setNewEmail(event.target.value)}
                     placeholder="new@address.com"
-                    className="w-full border border-border bg-background/40 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                    className="w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                   />
                   <Button
                     type="submit"
@@ -311,7 +340,7 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                     value={newPassword}
                     onChange={(event) => setNewPassword(event.target.value)}
                     placeholder="New password"
-                    className="w-full border border-border bg-background/40 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                    className="w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                   />
                   <label className="sr-only" htmlFor="confirm-password">
                     Confirm new password
@@ -323,7 +352,7 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                     value={confirmPassword}
                     onChange={(event) => setConfirmPassword(event.target.value)}
                     placeholder="Confirm new password"
-                    className="w-full border border-border bg-background/40 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                    className="w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                   />
                   <Button
                     type="submit"
@@ -365,13 +394,13 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                     value={inviteEmail}
                     onChange={(event) => setInviteEmail(event.target.value)}
                     placeholder="viewer@studio.com"
-                    className="border border-border bg-background/30 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                    className="min-w-0 rounded-lg border border-border bg-background/30 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                   />
                   <select
                     aria-label="Invite role"
                     value={inviteRole}
                     onChange={(event) => setInviteRole(event.target.value as "viewer" | "editor")}
-                    className="border border-border bg-background/30 px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none"
+                    className="rounded-lg border border-border bg-background/30 px-3 py-3 text-sm text-foreground transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                   >
                     <option value="viewer">Viewer</option>
                     <option value="editor">Editor</option>
@@ -387,7 +416,9 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
                 </form>
                 {inviteFeedback && (
                   <p
-                    className={`mt-3 text-xs ${inviteFeedback.kind === "success" ? "text-primary" : "text-destructive"}`}
+                    role={inviteFeedback.kind === "success" ? "status" : "alert"}
+                    aria-live={inviteFeedback.kind === "success" ? "polite" : "assertive"}
+                    className={`mt-3 text-xs leading-5 ${inviteFeedback.kind === "success" ? "text-primary" : "text-destructive"}`}
                   >
                     {inviteFeedback.message}
                   </p>
@@ -409,7 +440,9 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
             </footer>
             {feedback && (
               <div
-                className={`mx-6 mb-6 flex items-center gap-2 border p-3 text-xs sm:mx-8 ${feedback.kind === "success" ? "border-primary/30 bg-primary/5 text-primary" : "border-destructive/30 bg-destructive/10 text-destructive"}`}
+                role={feedback.kind === "success" ? "status" : "alert"}
+                aria-live={feedback.kind === "success" ? "polite" : "assertive"}
+                className={`mx-6 mb-6 flex items-start gap-2 rounded-lg border p-3 text-xs leading-5 sm:mx-8 ${feedback.kind === "success" ? "border-primary/30 bg-primary/5 text-primary" : "border-destructive/30 bg-destructive/10 text-destructive"}`}
               >
                 {feedback.kind === "success" ? (
                   <Check className="size-4" />

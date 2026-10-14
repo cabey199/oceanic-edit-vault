@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 
 export type ArchiveEdit = {
-  id: number;
+  id: number | string;
   title: string;
   note: string;
   image: string;
@@ -35,6 +35,8 @@ export type ArchiveEdit = {
   duration: string;
   format: "9:16" | "16:9";
   favorite: boolean;
+  videoUrl?: string;
+  downloadUrl?: string;
 };
 
 type UploadDrawerProps = {
@@ -51,13 +53,7 @@ const formatBytes = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-export function UploadDrawer({
-  open,
-  onClose,
-  onComplete,
-  onCompressed,
-  onUpload,
-}: UploadDrawerProps) {
+export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDrawerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
@@ -88,7 +84,8 @@ export function UploadDrawer({
   };
 
   const chooseFile = (selectedFile?: File) => {
-    if (!selectedFile || !selectedFile.type.startsWith("video/")) {
+    if (!selectedFile) return;
+    if (!selectedFile.type.startsWith("video/")) {
       setError("Choose a supported video file: MP4, MOV, or WEBM.");
       return;
     }
@@ -129,7 +126,7 @@ export function UploadDrawer({
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 260 }}
             onClick={(event) => event.stopPropagation()}
-            className="glass-panel absolute inset-y-0 right-0 flex w-full max-w-xl flex-col p-6 sm:p-10"
+            className="glass-panel absolute inset-y-0 right-0 flex w-full max-w-xl flex-col overflow-y-auto overscroll-contain p-5 sm:p-8"
           >
             <div className="flex items-start justify-between gap-6">
               <div>
@@ -163,7 +160,7 @@ export function UploadDrawer({
               onDragLeave={() => setDragging(false)}
               onDragOver={(event) => event.preventDefault()}
               onDrop={handleDrop}
-              className={`ocean-border mt-10 flex min-h-72 flex-col items-center justify-center p-8 text-center transition ${dragging ? "bg-primary/10" : "bg-background/30"}`}
+              className={`ocean-border mt-8 flex min-h-60 shrink-0 flex-col items-center justify-center rounded-2xl p-6 text-center transition-colors sm:min-h-64 sm:p-8 ${dragging ? "bg-primary/10" : "bg-background/30"}`}
             >
               <motion.div
                 animate={dragging ? { y: [-4, 4, -4] } : { y: 0 }}
@@ -193,9 +190,17 @@ export function UploadDrawer({
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="Give this memory a name"
-                className="mt-2 w-full border border-border bg-background/40 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                className="mt-2 w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               />
             </label>
+            {error && !file && (
+              <p
+                role="alert"
+                className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs leading-5 text-destructive"
+              >
+                {error}
+              </p>
+            )}
 
             <AnimatePresence mode="wait">
               {file ? (
@@ -204,6 +209,8 @@ export function UploadDrawer({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="glass-panel mt-6 p-5"
+                  role={phase === "error" ? "alert" : "status"}
+                  aria-live={phase === "error" ? "assertive" : "polite"}
                 >
                   <div className="flex items-center gap-4">
                     <div className="flex size-10 items-center justify-center bg-primary/10 text-primary">
@@ -221,13 +228,28 @@ export function UploadDrawer({
                     </div>
                     {phase === "ready" && <Check className="size-5 text-primary" />}
                   </div>
-                  <div className="mt-5 h-1 overflow-hidden bg-muted">
+                  <div
+                    role="progressbar"
+                    aria-label="Upload progress"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    {...(phase !== "uploading"
+                      ? { "aria-valuenow": Math.round(progress * 100) }
+                      : { "aria-valuetext": "Upload in progress" })}
+                    className="mt-5 h-1 overflow-hidden rounded-full bg-muted"
+                  >
                     <motion.div
                       className="h-full bg-primary shadow-[0_0_16px_var(--primary)]"
-                      animate={{ width: `${Math.round(progress * 100)}%` }}
+                      style={{ width: phase === "uploading" ? "40%" : "100%" }}
+                      animate={phase === "uploading" ? { x: ["-100%", "250%"] } : { x: 0 }}
+                      transition={
+                        phase === "uploading"
+                          ? { repeat: Infinity, duration: 1.5, ease: "easeInOut" }
+                          : { duration: 0.3 }
+                      }
                     />
                   </div>
-                  <div className="mt-2 flex justify-between font-mono text-[9px] text-muted-foreground">
+                  <div className="mt-2 flex flex-wrap justify-between gap-2 font-mono text-[9px] text-muted-foreground">
                     <span>
                       {phase === "uploading"
                         ? "Sending the original file to private storage"
@@ -235,7 +257,9 @@ export function UploadDrawer({
                           ? "Stored at original quality and ready"
                           : error}
                     </span>
-                    <span>{Math.round(progress * 100)}%</span>
+                    <span>
+                      {phase === "uploading" ? "Working…" : `${Math.round(progress * 100)}%`}
+                    </span>
                   </div>
                   <div className="mt-5 flex gap-2">
                     {phase === "uploading" && (
@@ -277,6 +301,7 @@ export function DeveloperDashboard({
 }) {
   const [originalQuality, setOriginalQuality] = useState(true);
   const [access, setAccess] = useState<"checking" | "granted" | "denied">("checking");
+  const [statsState, setStatsState] = useState<"loading" | "ready" | "error">("loading");
   const [stats, setStats] = useState<{
     totalBytes: number;
     originalBytes: number;
@@ -311,12 +336,16 @@ export function DeveloperDashboard({
         const response = await fetch("/api/archive-stats", {
           headers: { Authorization: `Bearer ${session.access_token}` },
         });
-        if (response.ok) {
-          const payload = (await response.json()) as typeof stats;
-          if (active) setStats(payload);
+        if (!response.ok) throw new Error("Stats request failed.");
+        const payload = (await response.json()) as typeof stats;
+        if (active) {
+          setStats(payload);
+          setStatsState("ready");
         }
       }
-    })();
+    })().catch(() => {
+      if (active) setStatsState("error");
+    });
     return () => {
       active = false;
     };
@@ -324,7 +353,7 @@ export function DeveloperDashboard({
 
   if (access === "checking") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background px-5 text-foreground">
+      <main className="ocean-archive relative isolate flex min-h-screen items-center justify-center px-5 text-foreground">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary">
           Verifying developer access…
         </p>
@@ -334,7 +363,7 @@ export function DeveloperDashboard({
 
   if (access === "denied") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background px-5 text-foreground">
+      <main className="ocean-archive relative isolate flex min-h-screen items-center justify-center px-5 text-foreground">
         <section className="glass-panel max-w-md p-8 text-center">
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-destructive">
             Access denied
@@ -380,8 +409,18 @@ export function DeveloperDashboard({
         <Metric
           icon={HardDrive}
           label="Storage capacity"
-          value={stats ? formatMetricBytes(stats.totalBytes) : "Loading…"}
-          detail="Tracked original-quality media and thumbnails"
+          value={
+            stats
+              ? formatMetricBytes(stats.totalBytes)
+              : statsState === "error"
+                ? "Unavailable"
+                : "Loading…"
+          }
+          detail={
+            statsState === "error"
+              ? "Storage metrics could not be loaded"
+              : "Tracked original-quality media and thumbnails"
+          }
         />
         <Metric
           icon={Cloud}
@@ -392,11 +431,15 @@ export function DeveloperDashboard({
         <Metric
           icon={Video}
           label="Total edits stored"
-          value={stats ? String(stats.itemCount) : "Loading…"}
+          value={
+            stats ? String(stats.itemCount) : statsState === "error" ? "Unavailable" : "Loading…"
+          }
           detail={
             stats
               ? `${formatMetricBytes(stats.originalBytes)} original-quality media`
-              : "Reading archive"
+              : statsState === "error"
+                ? "Archive metrics could not be loaded"
+                : "Reading archive"
           }
         />
       </div>
@@ -421,7 +464,7 @@ export function DeveloperDashboard({
               aria-label="Toggle original-quality storage"
               onClick={() => setOriginalQuality((value) => !value)}
               variant="ghost"
-              className={`h-7 w-12 rounded-full border p-1 ${originalQuality ? "border-primary bg-primary/20" : "border-border bg-muted"}`}
+              className={`h-7 min-h-0 w-12 rounded-full border p-1 ${originalQuality ? "border-primary bg-primary/20" : "border-border bg-muted"}`}
             >
               <motion.span
                 layout
@@ -429,16 +472,37 @@ export function DeveloperDashboard({
               />
             </Button>
           </div>
-          <div className="mt-8 grid grid-cols-3 gap-3 border-t border-border pt-6">
+          <div className="mt-8 grid grid-cols-1 gap-4 border-t border-border pt-6 sm:grid-cols-3">
             <SmallStat
               label="Original-quality media"
-              value={stats ? formatMetricBytes(stats.originalBytes) : "—"}
+              value={
+                stats
+                  ? formatMetricBytes(stats.originalBytes)
+                  : statsState === "error"
+                    ? "Unavailable"
+                    : "Loading…"
+              }
             />
             <SmallStat
               label="Thumbnails"
-              value={stats ? formatMetricBytes(stats.thumbnailBytes) : "—"}
+              value={
+                stats
+                  ? formatMetricBytes(stats.thumbnailBytes)
+                  : statsState === "error"
+                    ? "Unavailable"
+                    : "Loading…"
+              }
             />
-            <SmallStat label="R2 usage" value={stats ? formatMetricBytes(stats.r2Bytes) : "—"} />
+            <SmallStat
+              label="R2 usage"
+              value={
+                stats
+                  ? formatMetricBytes(stats.r2Bytes)
+                  : statsState === "error"
+                    ? "Unavailable"
+                    : "Loading…"
+              }
+            />
           </div>
         </section>
         <section className="glass-card p-6">
@@ -467,7 +531,7 @@ export function DeveloperDashboard({
   );
   if (!embedded)
     return (
-      <main className="min-h-screen bg-background px-5 py-24 text-foreground sm:px-8">
+      <main className="ocean-archive relative isolate min-h-screen px-5 py-24 text-foreground sm:px-8">
         {content}
       </main>
     );
@@ -538,7 +602,7 @@ function Metric({
 function SmallStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
+      <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
         {label}
       </p>
       <p className="mt-2 text-sm text-foreground">{value}</p>
@@ -652,7 +716,16 @@ export function CinematicPlayer({
             tabIndex={0}
             className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-background outline-none"
           >
-            {edit.videoUrl && videoSource ? (
+            {edit.videoUrl && mediaError ? (
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="max-w-md px-6 text-center text-sm leading-6 text-muted-foreground"
+              >
+                <Video className="mx-auto mb-3 size-10 text-destructive" />
+                {mediaError}
+              </div>
+            ) : edit.videoUrl && videoSource ? (
               <video
                 src={videoSource}
                 ref={videoRef}
@@ -674,10 +747,30 @@ export function CinematicPlayer({
                   )
                 }
               />
+            ) : !edit.videoUrl ? (
+              <div className="relative flex h-full w-full items-center justify-center bg-background">
+                <img
+                  src={edit.image}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-contain opacity-60"
+                />
+                <div className="absolute inset-0 bg-background/55 backdrop-blur-sm" />
+                <div className="relative z-10 flex max-w-md flex-col items-center gap-3 px-6 text-center">
+                  <Video className="size-10 text-primary" />
+                  <p className="font-display text-3xl text-foreground">Sample preview</p>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    The private original video isn’t attached to this sample edit.
+                  </p>
+                </div>
+              </div>
             ) : (
-              <div className="flex flex-col items-center gap-3 text-center text-sm text-muted-foreground">
+              <div
+                role="status"
+                aria-live="polite"
+                className="flex flex-col items-center gap-3 px-6 text-center text-sm text-muted-foreground"
+              >
                 <Video className="size-10 text-primary" />
-                {mediaError ?? "Loading private original video…"}
+                Loading private original video…
               </div>
             )}
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,transparent_62%,var(--background))]" />
@@ -699,6 +792,7 @@ export function CinematicPlayer({
               <input
                 aria-label="Video playback position"
                 type="range"
+                disabled={!videoSource}
                 min="0"
                 max="100"
                 value={position}
@@ -715,6 +809,7 @@ export function CinematicPlayer({
                 <Button
                   size="icon"
                   variant="ghost"
+                  disabled={!videoSource}
                   aria-label={playing ? "Pause video" : "Play video"}
                   onClick={togglePlayback}
                 >
@@ -723,6 +818,7 @@ export function CinematicPlayer({
                 <Button
                   variant="ghost"
                   size="icon"
+                  disabled={!videoSource}
                   aria-label={muted ? "Unmute video" : "Mute video"}
                   onClick={() => {
                     if (!videoRef.current) return;
@@ -742,6 +838,7 @@ export function CinematicPlayer({
                   <p className="text-xs text-muted-foreground">{edit.note}</p>
                 </div>
                 <Button
+                  disabled={!edit.downloadUrl}
                   onClick={() => {
                     void (async () => {
                       if (!edit.downloadUrl) return onSave(edit.title);
@@ -763,7 +860,10 @@ export function CinematicPlayer({
                   }}
                   className="w-full bg-primary text-primary-foreground shadow-[0_0_25px_var(--primary-glow)] hover:bg-primary/90 sm:w-auto"
                 >
-                  <ImageDown /> Save to Phone Camera Roll
+                  <ImageDown />
+                  {edit.downloadUrl
+                    ? "Save to Phone Camera Roll"
+                    : "Sample preview · no original to save"}
                 </Button>
               </div>
             </div>
