@@ -627,6 +627,22 @@ export function CinematicPlayer({
             initial={{ scale: 1.02 }}
             animate={{ scale: 1 }}
             onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              const video = videoRef.current;
+              if (!video) return;
+              if (event.key === " " || event.key === "k") {
+                event.preventDefault();
+                togglePlayback();
+              } else if (event.key === "ArrowLeft") {
+                video.currentTime = Math.max(0, video.currentTime - 5);
+              } else if (event.key === "ArrowRight") {
+                video.currentTime = Math.min(video.duration || Infinity, video.currentTime + 5);
+              } else if (event.key.toLowerCase() === "m") {
+                video.muted = !video.muted;
+                setMuted(video.muted);
+              }
+            }}
+            tabIndex={0}
             className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-background"
           >
             {edit.videoUrl && videoSource ? (
@@ -645,6 +661,11 @@ export function CinematicPlayer({
                   setPosition(video.duration ? (video.currentTime / video.duration) * 100 : 0);
                 }}
                 onVolumeChange={(event) => setMuted(event.currentTarget.muted)}
+                onError={() =>
+                  setMediaError(
+                    "This video format is not supported by this phone or browser. The original file is still safe.",
+                  )
+                }
               />
             ) : (
               <div className="flex flex-col items-center gap-3 text-center text-sm text-muted-foreground">
@@ -663,7 +684,11 @@ export function CinematicPlayer({
                 <Play className="ml-1 size-6 fill-current" />
               </Button>
             )}
-            <div className="absolute inset-x-0 bottom-0 p-4 sm:p-8">
+            <div
+              className="absolute inset-x-0 bottom-0 p-4 sm:p-8"
+              onClick={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+            >
               <input
                 aria-label="Video playback position"
                 type="range"
@@ -717,16 +742,15 @@ export function CinematicPlayer({
                         data: { session },
                       } = await supabase.auth.getSession();
                       if (!session) return onSave(edit.title);
-                      const response = await fetch(edit.downloadUrl, {
-                        headers: { Authorization: `Bearer ${session.access_token}` },
-                      });
-                      if (!response.ok) return onSave(edit.title);
-                      const downloadUrl = URL.createObjectURL(await response.blob());
+                      const downloadUrl = new URL(edit.downloadUrl, window.location.origin);
+                      downloadUrl.searchParams.set("access_token", session.access_token);
                       const anchor = document.createElement("a");
-                      anchor.href = downloadUrl;
+                      anchor.href = downloadUrl.toString();
                       anchor.download = `${edit.title.replace(/[^a-z0-9_-]+/gi, "-")}.mp4`;
+                      anchor.rel = "noopener";
+                      document.body.appendChild(anchor);
                       anchor.click();
-                      URL.revokeObjectURL(downloadUrl);
+                      anchor.remove();
                       onSave(edit.title);
                     })();
                   }}

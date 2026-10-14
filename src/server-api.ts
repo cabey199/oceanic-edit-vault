@@ -248,7 +248,7 @@ async function getArchiveStats(request: Request, env: RuntimeEnv) {
     .eq("archived", false)
     .neq("status", "failed");
   if (countError) return json({ error: countError.message }, 500);
-  const storageLimitBytes = Number(env.ARCHIVE_STORAGE_LIMIT_BYTES) || 0;
+  const storageLimitBytes = Number(env.ARCHIVE_STORAGE_LIMIT_BYTES) || 200 * 1000 * 1000 * 1000;
   return json({
     ...stats,
     itemCount: count ?? 0,

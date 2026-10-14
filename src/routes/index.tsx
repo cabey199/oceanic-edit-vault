@@ -430,20 +430,16 @@ function Index() {
         flashNotice("Your session has expired");
         return;
       }
-      const response = await fetch(edit.downloadUrl, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (!response.ok) {
-        flashNotice("Download could not be started");
-        return;
-      }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      const url = new URL(edit.downloadUrl, window.location.origin);
+      url.searchParams.set("access_token", session.access_token);
       const anchor = document.createElement("a");
-      anchor.href = url;
+      anchor.href = url.toString();
       anchor.download = `${edit.title.replace(/[^a-z0-9_-]+/gi, "-")}.mp4`;
+      anchor.rel = "noopener";
+      document.body.appendChild(anchor);
       anchor.click();
-      URL.revokeObjectURL(url);
+      anchor.remove();
+      flashNotice("Download started");
     },
     [flashNotice],
   );
@@ -451,30 +447,6 @@ function Index() {
   const shareEdit = useCallback(
     async (edit: ArchiveEdit) => {
       try {
-        if (navigator.share && edit.videoUrl) {
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
-          if (session) {
-            const response = await fetch(edit.videoUrl, {
-              headers: { Authorization: `Bearer ${session.access_token}` },
-            });
-            if (response.ok) {
-              const blob = await response.blob();
-              const file = new File([blob], `${edit.title.replace(/[^a-z0-9_-]+/gi, "-")}.mp4`, {
-                type: blob.type || "video/mp4",
-              });
-              if (!navigator.canShare || navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                  files: [file],
-                  title: edit.title,
-                  text: `${edit.title} · chico’s POV`,
-                });
-                return;
-              }
-            }
-          }
-        }
         if (navigator.share) {
           await navigator.share({
             title: edit.title,
@@ -482,7 +454,18 @@ function Index() {
             url: window.location.href,
           });
         } else {
-          await navigator.clipboard.writeText(window.location.href);
+          const shareUrl = window.location.href;
+          if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(shareUrl);
+          else {
+            const input = document.createElement("textarea");
+            input.value = shareUrl;
+            input.style.position = "fixed";
+            input.style.opacity = "0";
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand("copy");
+            input.remove();
+          }
           flashNotice(`${edit.title} link copied`);
         }
       } catch (error) {
@@ -696,7 +679,7 @@ function Index() {
                       className="glass-card group overflow-hidden"
                     >
                       <div
-                        className={`relative overflow-hidden bg-secondary ${edit.format === "9:16" ? "aspect-[4/5]" : "aspect-[16/10]"}`}
+                        className={`relative overflow-hidden bg-secondary ${edit.format === "9:16" ? "aspect-[9/16]" : "aspect-video"}`}
                       >
                         <PrivateThumbnail
                           src={edit.image}
