@@ -207,7 +207,7 @@ async function listArchiveItems(request: Request, env: RuntimeEnv) {
     favorite: item.favorite,
     size: item.archive_media_objects.find((media) => media.kind === "original")?.byte_size ?? 0,
     thumbnailUrl: `${new URL(request.url).origin}/api/archive-items/${item.id}/media/thumbnail`,
-    mediaUrl: `${new URL(request.url).origin}/api/archive-items/${item.id}/media/original`,
+    mediaUrl: `${new URL(request.url).origin}/api/archive-items/${item.id}/media/${item.archive_media_objects.some((media) => media.kind === "playback") ? "playback" : "original"}`,
     downloadUrl: `${new URL(request.url).origin}/api/archive-items/${item.id}/media/original?download=1`,
   }));
   return json({ items });
@@ -384,7 +384,7 @@ async function serveMedia(
   request: Request,
   env: RuntimeEnv,
   itemId: string,
-  kind: "original" | "thumbnail",
+  kind: "original" | "playback" | "thumbnail",
 ) {
   const admin = createAdmin(env);
   const bucket = env.MEDIA_BUCKET;
@@ -500,11 +500,16 @@ export async function handleApiRequest(request: Request, env: unknown): Promise<
   if (url.pathname === "/api/archive-stats" && request.method === "GET")
     return getArchiveStats(request, runtime);
   const mediaMatch = url.pathname.match(
-    /^\/api\/archive-items\/([^/]+)\/media\/(original|thumbnail)$/,
+    /^\/api\/archive-items\/([^/]+)\/media\/(original|playback|thumbnail)$/,
   );
   const mediaItemId = mediaMatch?.[1];
   const mediaKind = mediaMatch?.[2];
   if (mediaItemId && mediaKind && request.method === "GET")
-    return serveMedia(request, runtime, mediaItemId, mediaKind as "original" | "thumbnail");
+    return serveMedia(
+      request,
+      runtime,
+      mediaItemId,
+      mediaKind as "original" | "playback" | "thumbnail",
+    );
   return null;
 }
