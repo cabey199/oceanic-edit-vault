@@ -670,6 +670,30 @@ export function CinematicPlayer({
     if (video.paused) void video.play();
     else video.pause();
   };
+  useEffect(() => {
+    if (!edit) return;
+    const handleGlobalKeyDown = (event: KeyboardEvent) => {
+      if ((event.target as HTMLElement | null)?.closest("input, textarea, button, select")) return;
+      const video = videoRef.current;
+      if (!video) return;
+      if (event.key === " " || event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        togglePlayback();
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        video.currentTime = Math.max(0, video.currentTime - 5);
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        video.currentTime = Math.min(video.duration || Infinity, video.currentTime + 5);
+      } else if (event.key.toLowerCase() === "m") {
+        event.preventDefault();
+        video.muted = !video.muted;
+        setMuted(video.muted);
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [edit]);
 
   return (
     <AnimatePresence>
@@ -704,21 +728,6 @@ export function CinematicPlayer({
             initial={{ scale: 1.02 }}
             animate={{ scale: 1 }}
             onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => {
-              const video = videoRef.current;
-              if (!video) return;
-              if (event.key === " " || event.key === "k") {
-                event.preventDefault();
-                togglePlayback();
-              } else if (event.key === "ArrowLeft") {
-                video.currentTime = Math.max(0, video.currentTime - 5);
-              } else if (event.key === "ArrowRight") {
-                video.currentTime = Math.min(video.duration || Infinity, video.currentTime + 5);
-              } else if (event.key.toLowerCase() === "m") {
-                video.muted = !video.muted;
-                setMuted(video.muted);
-              }
-            }}
             tabIndex={0}
             className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-background outline-none"
           >

@@ -16,6 +16,7 @@ import {
   LockKeyhole,
   Moon,
   Play,
+  RefreshCw,
   Share2,
   Sun,
   Trash2,
@@ -457,6 +458,32 @@ function Index() {
   const shareEdit = useCallback(
     async (edit: ArchiveEdit) => {
       try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) {
+          flashNotice("Your session has expired");
+          return;
+        }
+        if (navigator.share && edit.downloadUrl) {
+          const downloadUrl = new URL(edit.downloadUrl, window.location.origin);
+          downloadUrl.searchParams.set("access_token", session.access_token);
+          const response = await fetch(downloadUrl.toString());
+          if (response.ok) {
+            const blob = await response.blob();
+            const file = new File([blob], `${edit.title.replace(/[^a-z0-9_-]+/gi, "-")}.mp4`, {
+              type: blob.type || "video/mp4",
+            });
+            if (navigator.canShare?.({ files: [file] })) {
+              await navigator.share({
+                title: edit.title,
+                text: `${edit.title} · chico’s POV`,
+                files: [file],
+              });
+              return;
+            }
+          }
+        }
         if (navigator.share) {
           await navigator.share({
             title: edit.title,
@@ -671,6 +698,21 @@ function Index() {
                   {filter}
                 </Button>
               ))}
+            </div>
+
+            <div className="mb-6 flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void loadArchive()}
+                disabled={archiveStatus === "loading"}
+                className="gap-2 font-mono text-[10px] uppercase tracking-[0.12em]"
+              >
+                <RefreshCw
+                  className={`size-3.5 ${archiveStatus === "loading" ? "animate-spin" : ""}`}
+                />
+                Refresh vault
+              </Button>
             </div>
 
             {archiveStatus !== "ready" && (
