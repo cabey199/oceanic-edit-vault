@@ -33,16 +33,12 @@ The website will work like this:
 ```
 She uploads a 100 MB video
         ↓
-The website compresses it carefully
+The untouched original is stored privately in R2
         ↓
-Only the compressed version is stored
-        ↓
-The compressed version is used for website playback
-        ↓
-The same compressed version is used for download
+The same private R2 file is used for playback and download
 ```
 
-The compressed file might be:
+The stored R2 file keeps its original quality:
 
 - 20 MB.
 
@@ -51,8 +47,6 @@ The compressed file might be:
 - 50 MB.
 
 - Another size that keeps the quality looking good.
-
-We will **not force every video to become exactly 20 MB** if doing that makes it look bad.
 
 The compressed file must keep:
 
@@ -68,7 +62,7 @@ The compressed file must keep:
 
 - Good visual quality.
 
-The original upload is **not stored** in this compressed-only design. This is how the project saves the most storage space.
+The original upload **is stored privately in R2** and is used for both playback and downloads.
 
 ---
 
@@ -227,7 +221,7 @@ If your Supabase plan does not show backups, do not worry. Continue to the next 
 ## Step 9: Get the database migration from GitHub
 
 1. Open the GitHub repository:
-[oceanic-edit-vault](https://github.com/cabey199/oceanic-edit-vault)
+   [oceanic-edit-vault](https://github.com/cabey199/oceanic-edit-vault)
 
 1. Click the `supabase` folder.
 
@@ -1043,14 +1037,6 @@ If you send a screenshot, cover or blur:
 
 ---
 
-# Your only immediate action
+# Current playback requirement
 
-Start with **Part 2 — Supabase setup**.
-
-When you finish Part 8, send me:
-
-```
-My setup is complete. Supabase migration is done, my account is developer, the Worker status values are true, the private R2 bucket is ready, and I am using R2 first.
-```
-
-Then I will take over the technical build and move us toward the birthday launch.
+The free R2 setup stores original files and plays them directly. For reliable playback across phones and computers, upload H.264 video with AAC audio. HEVC/H.265 files may not play on every phone or browser.

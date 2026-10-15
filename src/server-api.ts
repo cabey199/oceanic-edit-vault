@@ -494,14 +494,17 @@ export async function handleApiRequest(request: Request, env: unknown): Promise<
     return json({ error: "Method not allowed." }, 405);
   }
   const itemDeleteMatch = url.pathname.match(/^\/api\/archive-items\/([^/]+)$/);
-  if (itemDeleteMatch && request.method === "DELETE")
-    return deleteArchiveItem(request, runtime, itemDeleteMatch[1]);
+  const itemDeleteId = itemDeleteMatch?.[1];
+  if (itemDeleteId && request.method === "DELETE")
+    return deleteArchiveItem(request, runtime, itemDeleteId);
   if (url.pathname === "/api/archive-stats" && request.method === "GET")
     return getArchiveStats(request, runtime);
   const mediaMatch = url.pathname.match(
     /^\/api\/archive-items\/([^/]+)\/media\/(original|thumbnail)$/,
   );
-  if (mediaMatch && request.method === "GET")
-    return serveMedia(request, runtime, mediaMatch[1], mediaMatch[2] as "original" | "thumbnail");
+  const mediaItemId = mediaMatch?.[1];
+  const mediaKind = mediaMatch?.[2];
+  if (mediaItemId && mediaKind && request.method === "GET")
+    return serveMedia(request, runtime, mediaItemId, mediaKind as "original" | "thumbnail");
   return null;
 }
