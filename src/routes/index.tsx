@@ -40,7 +40,15 @@ import neonAfterglow from "@/assets/neon-afterglow.jpg";
 import tidalStudy from "@/assets/tidal-study.jpg";
 import underwaterDream from "@/assets/underwater-dream.jpg";
 
-type Category = "All Edits" | "TikTok / Reels" | "Landscape" | "Favorites";
+type Category =
+  | "All Edits"
+  | "TikTok / Reels"
+  | "Landscape"
+  | "Favorites"
+  | "General Vault"
+  | "CapCut"
+  | "Raw Videos"
+  | "Personal Videos";
 type OceanTheme = "calm" | "night";
 
 function formatBytes(bytes: number) {
@@ -296,6 +304,7 @@ function Index() {
           thumbnailUrl: string;
           mediaUrl: string;
           downloadUrl: string;
+          section?: string;
         }>;
       };
       if (!payload.items) throw new Error("Archive response was incomplete.");
@@ -304,6 +313,7 @@ function Index() {
           id: item.id,
           title: item.title,
           note: item.note,
+          section: item.section ?? "General Vault",
           image: item.thumbnailUrl,
           size: formatBytes(item.size),
           date: new Date()
@@ -326,6 +336,12 @@ function Index() {
     void loadArchive();
   }, [loadArchive]);
 
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("edit");
+    if (!requested || selected || archiveStatus !== "ready") return;
+    const match = archiveEdits.find((edit) => String(edit.id) === requested);
+    if (match) setSelected(match);
+  }, [archiveEdits, archiveStatus, selected]);
   useEffect(() => {
     if (reduceMotion) return;
 
@@ -391,6 +407,8 @@ function Index() {
         if (activeFilter === "Favorites") return edit.favorite;
         if (activeFilter === "TikTok / Reels") return edit.format === "9:16";
         if (activeFilter === "Landscape") return edit.format === "16:9";
+        if (["General Vault", "CapCut", "Raw Videos", "Personal Videos"].includes(activeFilter))
+          return edit.section === activeFilter;
         return true;
       }),
     [activeFilter, archiveEdits],
@@ -402,7 +420,7 @@ function Index() {
   }, []);
 
   const uploadOriginalEdit = useCallback(
-    async (original: File, title: string) => {
+    async (original: File, title: string, section: string) => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -412,6 +430,7 @@ function Index() {
       form.set("file", original, original.name);
       form.set("thumbnail", thumbnail.file);
       form.set("title", title);
+      form.set("section", section || "General Vault");
       form.set("width", String(thumbnail.width));
       form.set("height", String(thumbnail.height));
       form.set("duration", String(thumbnail.duration));
@@ -458,53 +477,18 @@ function Index() {
   const shareEdit = useCallback(
     async (edit: ArchiveEdit) => {
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        if (!session) {
-          flashNotice("Your session has expired");
-          return;
-        }
-        if (navigator.share && edit.downloadUrl) {
-          const downloadUrl = new URL(edit.downloadUrl, window.location.origin);
-          downloadUrl.searchParams.set("access_token", session.access_token);
-          const response = await fetch(downloadUrl.toString());
-          if (response.ok) {
-            const blob = await response.blob();
-            const file = new File([blob], `${edit.title.replace(/[^a-z0-9_-]+/gi, "-")}.mp4`, {
-              type: blob.type || "video/mp4",
-            });
-            if (navigator.canShare?.({ files: [file] })) {
-              await navigator.share({
-                title: edit.title,
-                text: `${edit.title} · chico’s POV`,
-                files: [file],
-              });
-              return;
-            }
-          }
-        }
-        if (navigator.share) {
-          await navigator.share({
-            title: edit.title,
-            text: `${edit.title} · chico’s POV`,
-            url: window.location.href,
-          });
-        } else {
-          const shareUrl = window.location.href;
-          if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(shareUrl);
-          else {
-            const input = document.createElement("textarea");
-            input.value = shareUrl;
-            input.style.position = "fixed";
-            input.style.opacity = "0";
-            document.body.appendChild(input);
-            input.select();
-            document.execCommand("copy");
-            input.remove();
-          }
+        const shareUrl = new URL(window.location.href);
+        shareUrl.searchParams.set("edit", String(edit.id));
+        const payload = {
+          title: edit.title,
+          text: `${edit.title} · chico’s POV`,
+          url: shareUrl.toString(),
+        };
+        if (navigator.share) await navigator.share(payload);
+        else if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(shareUrl.toString());
           flashNotice(`${edit.title} link copied`);
-        }
+        } else flashNotice("Copy this page URL to share the edit");
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return;
         flashNotice("Sharing is unavailable on this device");
@@ -512,7 +496,6 @@ function Index() {
     },
     [flashNotice],
   );
-
   const deleteEdit = useCallback(
     async (edit: ArchiveEdit) => {
       if (!edit.videoUrl) {
@@ -687,17 +670,19 @@ function Index() {
               role="group"
               aria-label="Filter edits"
             >
-              {filters.map((filter) => (
-                <Button
-                  key={filter}
-                  aria-pressed={activeFilter === filter}
-                  variant="ghost"
-                  onClick={() => setActiveFilter(filter)}
-                  className={`min-h-11 shrink-0 rounded-full border px-4 font-mono text-[10px] uppercase tracking-[0.12em] ${activeFilter === filter ? "border-primary bg-primary/10 text-primary shadow-[0_0_18px_var(--primary-glow)]" : "border-border bg-card/30 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"}`}
-                >
-                  {filter}
-                </Button>
-              ))}
+              {[...filters, "General Vault", "CapCut", "Raw Videos", "Personal Videos"].map(
+                (filter) => (
+                  <Button
+                    key={filter}
+                    aria-pressed={activeFilter === filter}
+                    variant="ghost"
+                    onClick={() => setActiveFilter(filter as Category)}
+                    className={`min-h-11 shrink-0 rounded-full border px-4 font-mono text-[10px] uppercase tracking-[0.12em] ${activeFilter === filter ? "border-primary bg-primary/10 text-primary shadow-[0_0_18px_var(--primary-glow)]" : "border-border bg-card/30 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"}`}
+                  >
+                    {filter}
+                  </Button>
+                ),
+              )}
             </div>
 
             <div className="mb-6 flex justify-end">
@@ -733,7 +718,10 @@ function Index() {
                 )}
               </div>
             )}
-            <motion.div layout className="grid gap-x-6 gap-y-8 md:grid-cols-2 lg:grid-cols-3">
+            <motion.div
+              layout
+              className="grid grid-cols-2 gap-3 sm:gap-x-6 sm:gap-y-8 md:grid-cols-2 lg:grid-cols-3"
+            >
               <AnimatePresence mode="popLayout">
                 {visibleEdits.map((edit, index) => (
                   <motion.div layout key={edit.id} className="min-w-0">
@@ -812,20 +800,22 @@ function Index() {
                           </div>
                         )}
                       </div>
-                      <div className="min-w-0 p-5">
+                      <div className="min-w-0 p-3 sm:p-5">
                         <div className="flex items-start justify-between gap-4">
                           <div className="min-w-0">
-                            <h3 className="break-words font-display text-2xl leading-tight">
+                            <h3 className="break-words font-display text-lg leading-tight sm:text-2xl">
                               {edit.title}
                             </h3>
-                            <p className="mt-1 text-xs text-muted-foreground">{edit.note}</p>
+                            <p className="mt-1 line-clamp-2 text-[10px] text-muted-foreground sm:text-xs">
+                              {edit.note}
+                            </p>
                           </div>
                           <span className="shrink-0 border border-border px-2 py-1 font-mono text-[9px] text-muted-foreground">
                             {edit.size}
                           </span>
                         </div>
                         <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
-                          <span className="font-mono text-[9px] tracking-[0.13em] text-muted-foreground">
+                          <span className="truncate font-mono text-[8px] tracking-[0.08em] text-muted-foreground sm:text-[9px] sm:tracking-[0.13em]">
                             {edit.date}
                           </span>
                         </div>

@@ -35,6 +35,7 @@ type ArchiveRow = {
   id: string;
   title: string;
   note: string | null;
+  section_name: string | null;
   format: "9:16" | "16:9";
   duration_seconds: number | null;
   width: number | null;
@@ -189,7 +190,7 @@ async function listArchiveItems(request: Request, env: RuntimeEnv) {
   const { data, error } = await admin
     .from("archive_items")
     .select(
-      "id,title,note,format,duration_seconds,width,height,favorite,created_at,archive_media_objects(kind,object_key,byte_size,content_type)",
+      "id,title,note,section_name,format,duration_seconds,width,height,favorite,created_at,archive_media_objects(kind,object_key,byte_size,content_type)",
     )
     .eq("archived", false)
     .in("status", ["ready", "processing"])
@@ -200,6 +201,7 @@ async function listArchiveItems(request: Request, env: RuntimeEnv) {
     id: item.id,
     title: item.title,
     note: item.note ?? "Original-quality archive edit",
+    section: item.section_name ?? "General Vault",
     format: item.format,
     duration: item.duration_seconds ?? 0,
     width: item.width,
@@ -233,13 +235,22 @@ async function getArchiveStats(request: Request, env: RuntimeEnv) {
   }>;
   const stats = rows.reduce(
     (result, row) => {
-      result.totalBytes += Number(row.byte_size) || 0;
-      result[`${row.provider}Bytes`] += Number(row.byte_size) || 0;
-      if (row.kind === "thumbnail") result.thumbnailBytes += Number(row.byte_size) || 0;
-      else result.originalBytes += Number(row.byte_size) || 0;
+      const bytes = Number(row.byte_size) || 0;
+      result.totalBytes += bytes;
+      result[`${row.provider}Bytes`] += bytes;
+      if (row.kind === "thumbnail") result.thumbnailBytes += bytes;
+      else if (row.kind === "playback") result.playbackBytes += bytes;
+      else result.originalBytes += bytes;
       return result;
     },
-    { totalBytes: 0, originalBytes: 0, thumbnailBytes: 0, r2Bytes: 0, b2Bytes: 0 },
+    {
+      totalBytes: 0,
+      originalBytes: 0,
+      playbackBytes: 0,
+      thumbnailBytes: 0,
+      r2Bytes: 0,
+      b2Bytes: 0,
+    },
   );
   const { count, error: countError } = await admin
     .from("archive_items")
@@ -276,6 +287,8 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
   const width = Number(form.get("width"));
   const height = Number(form.get("height"));
   const duration = Number(form.get("duration"));
+  const section =
+    typeof form.get("section") === "string" ? String(form.get("section")).trim() : "General Vault";
   if (!(file instanceof File) || !(thumbnail instanceof File) || !title || !width || !height)
     return json(
       { error: "Original video, thumbnail, title, width, and height are required." },
@@ -288,6 +301,7 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
       owner_id: auth.user.id,
       title,
       note: "Original-quality archive edit",
+      section_name: section || "General Vault",
       format: formatFor(width, height),
       duration_seconds: Number.isFinite(duration) ? duration : null,
       width,
@@ -403,35 +417,45 @@ async function serveMedia(
   )[0];
   if (!media) return json({ error: "Media file was not found." }, 404);
   const rangeHeader = request.headers.get("range");
-  let range: { offset: number; length?: number } | undefined;
+  const fullObject = await bucket.get(media.object_key);
+  const totalSize = fullObject?.size ?? 0;
+  if (!totalSize) return json({ error: "Stored media file was not found." }, 404);
+  let range: { offset: number; length: number } | undefined;
   let rangeStart = 0;
-  let rangeEnd: number | undefined;
+  let rangeEnd = totalSize - 1;
   if (rangeHeader) {
-    const match = rangeHeader.match(/^bytes=(\d+)-(\d*)$/);
-    if (match) {
+    const match = rangeHeader.match(/^bytes=(\d*)-(\d*)$/);
+    if (!match || (!match[1] && !match[2]))
+      return new Response(null, {
+        status: 416,
+        headers: { "content-range": `bytes */${totalSize}` },
+      });
+    if (match[1]) {
       rangeStart = Number(match[1]);
-      rangeEnd = match[2] ? Number(match[2]) : undefined;
-      range = {
-        offset: rangeStart,
-        ...(rangeEnd !== undefined ? { length: rangeEnd - rangeStart + 1 } : {}),
-      };
+      rangeEnd = match[2] ? Number(match[2]) : totalSize - 1;
+    } else {
+      const suffixLength = Math.min(Number(match[2]), totalSize);
+      rangeStart = totalSize - suffixLength;
     }
+    if (rangeStart < 0 || rangeStart >= totalSize || rangeEnd < rangeStart)
+      return new Response(null, {
+        status: 416,
+        headers: { "content-range": `bytes */${totalSize}` },
+      });
+    rangeEnd = Math.min(rangeEnd, totalSize - 1);
+    range = { offset: rangeStart, length: rangeEnd - rangeStart + 1 };
   }
   const object = await bucket.get(media.object_key, range ? { range } : undefined);
   if (!object?.body) return json({ error: "Stored media file was not found." }, 404);
   const headers = new Headers({
     "content-type": media.content_type,
-    "cache-control": "private, max-age=60",
+    "cache-control": "private, max-age=3600",
     "accept-ranges": "bytes",
+    "content-length": String(range ? rangeEnd - rangeStart + 1 : totalSize),
   });
-  if (range && object.size) {
-    const totalSize = object.size;
-    const actualEnd = rangeEnd ?? totalSize - 1;
-    headers.set("content-range", `bytes ${rangeStart}-${actualEnd}/${totalSize}`);
-    headers.set("content-length", String(actualEnd - rangeStart + 1));
-  }
+  if (range) headers.set("content-range", `bytes ${rangeStart}-${rangeEnd}/${totalSize}`);
   if (new URL(request.url).searchParams.get("download") === "1") {
-    headers.set("content-disposition", `attachment; filename="${itemId}"`);
+    headers.set("content-disposition", `attachment; filename="${itemId}.mp4"`);
   }
   return new Response(object.body, { status: range ? 206 : 200, headers });
 }

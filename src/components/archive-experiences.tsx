@@ -35,6 +35,7 @@ export type ArchiveEdit = {
   duration: string;
   format: "9:16" | "16:9";
   favorite: boolean;
+  section?: string;
   videoUrl?: string;
   downloadUrl?: string;
 };
@@ -43,7 +44,7 @@ type UploadDrawerProps = {
   open: boolean;
   onClose: () => void;
   onComplete: (message: string) => void;
-  onUpload?: (original: File, title: string) => Promise<void>;
+  onUpload?: (original: File, title: string, section: string) => Promise<void>;
 };
 
 type UploadPhase = "idle" | "uploading" | "ready" | "error";
@@ -57,6 +58,7 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
+  const [section, setSection] = useState("General Vault");
   const [phase, setPhase] = useState<UploadPhase>("idle");
   const [progress, setProgress] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -69,7 +71,11 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
     setPhase("uploading");
     try {
       if (onUpload)
-        await onUpload(selectedFile, title.trim() || selectedFile.name.replace(/\.[^/.]+$/, ""));
+        await onUpload(
+          selectedFile,
+          title.trim() || selectedFile.name.replace(/\.[^/.]+$/, ""),
+          section,
+        );
       setProgress(1);
       setPhase("ready");
       onComplete(`${selectedFile.name} stored at original quality`);
@@ -101,6 +107,7 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
   const reset = () => {
     setFile(null);
     setTitle("");
+    setSection("General Vault");
     setError(null);
     setProgress(0);
     setPhase("idle");
@@ -192,6 +199,21 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
                 placeholder="Give this memory a name"
                 className="mt-2 w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-base text-foreground placeholder:text-muted-foreground/50 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
               />
+            </label>
+            <label className="mt-4 block text-left">
+              <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
+                Vault section
+              </span>
+              <select
+                value={section}
+                onChange={(event) => setSection(event.target.value)}
+                className="mt-2 w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-sm text-foreground focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                <option>General Vault</option>
+                <option>CapCut</option>
+                <option>Raw Videos</option>
+                <option>Personal Videos</option>
+              </select>
             </label>
             {error && !file && (
               <p
@@ -305,16 +327,20 @@ export function DeveloperDashboard({
   const [stats, setStats] = useState<{
     totalBytes: number;
     originalBytes: number;
+    playbackBytes: number;
     thumbnailBytes: number;
     r2Bytes: number;
     b2Bytes: number;
     itemCount: number;
+    storageLimitBytes: number;
+    remainingBytes: number;
   } | null>(null);
 
-  const formatMetricBytes = (bytes: number) =>
-    bytes < 1024 * 1024
-      ? `${Math.max(1, Math.round(bytes / 1024))} KB`
-      : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const formatMetricBytes = (bytes: number) => {
+    if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
+    if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
+    return `${Math.max(1, Math.round(bytes / 1_000))} KB`;
+  };
 
   useEffect(() => {
     let active = true;
@@ -411,15 +437,25 @@ export function DeveloperDashboard({
           label="Storage capacity"
           value={
             stats
-              ? formatMetricBytes(stats.totalBytes)
+              ? `${formatMetricBytes(stats.totalBytes)} / ${formatMetricBytes(stats.storageLimitBytes)}`
               : statsState === "error"
                 ? "Unavailable"
                 : "Loading…"
           }
+          {...(stats
+            ? {
+                progress: Math.min(
+                  100,
+                  (stats.totalBytes / Math.max(1, stats.storageLimitBytes)) * 100,
+                ),
+              }
+            : {})}
           detail={
-            statsState === "error"
-              ? "Storage metrics could not be loaded"
-              : "Tracked original-quality media and thumbnails"
+            stats
+              ? `${formatMetricBytes(stats.remainingBytes)} remaining · ${Math.min(100, (stats.totalBytes / Math.max(1, stats.storageLimitBytes)) * 100).toFixed(2)}% used`
+              : statsState === "error"
+                ? "Storage metrics could not be loaded"
+                : "Tracked original-quality media and thumbnails"
           }
         />
         <Metric
@@ -483,6 +519,16 @@ export function DeveloperDashboard({
               value={
                 stats
                   ? formatMetricBytes(stats.originalBytes)
+                  : statsState === "error"
+                    ? "Unavailable"
+                    : "Loading…"
+              }
+            />
+            <SmallStat
+              label="Playback copies"
+              value={
+                stats
+                  ? formatMetricBytes(stats.playbackBytes)
                   : statsState === "error"
                     ? "Unavailable"
                     : "Loading…"
@@ -746,6 +792,7 @@ export function CinematicPlayer({
                 ref={videoRef}
                 playsInline
                 preload="metadata"
+                poster={edit.image}
                 className="max-h-full max-w-full object-contain"
                 onPlay={() => setPlaying(true)}
                 onPause={() => setPlaying(false)}
