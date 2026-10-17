@@ -493,6 +493,18 @@
   scroll-padding-inline: 1rem;
 }
 
+@media (max-width: 639px) {
+  .ocean-archive #vault article,
+  .ocean-archive #vault article:nth-child(3n + 2),
+  .ocean-archive #vault article:nth-child(3n) {
+    translate: none;
+  }
+  .ocean-archive .glass-card {
+    box-shadow: 0 6px 22px oklch(0 0 0 / 26%);
+    -webkit-backdrop-filter: blur(10px) saturate(115%);
+    backdrop-filter: blur(10px) saturate(115%);
+  }
+}
 @media (max-height: 38rem) {
   .ios-login-page {
     align-items: flex-start;

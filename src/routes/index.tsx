@@ -804,38 +804,44 @@ function Index() {
                       {...(reduceMotion ? {} : { whileHover: { y: -4 } })}
                       className="glass-card group min-w-0 max-w-full overflow-hidden"
                     >
-                      <div className="relative h-72 min-h-0 overflow-hidden rounded-t-[inherit] bg-secondary sm:h-64">
+                      <div className="relative aspect-[4/3] min-h-0 overflow-hidden rounded-t-[inherit] bg-secondary sm:aspect-auto sm:h-64">
                         <PrivateThumbnail
                           src={edit.image}
                           alt={`${edit.title} video thumbnail`}
-                          className="absolute inset-0 h-full w-full object-contain opacity-80 transition-all duration-[900ms] ease-out group-hover:scale-[1.02] group-hover:opacity-100"
+                          className="absolute inset-0 h-full w-full object-cover opacity-90 transition-opacity duration-200 group-hover:opacity-100"
                         />
-                        <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--card),transparent_55%)] opacity-70" />
-                        <div className="absolute left-4 top-4 border border-border bg-background/55 px-2.5 py-1 font-mono text-[9px] tracking-[0.15em] text-foreground backdrop-blur-md">
+                        <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--card),transparent_58%)] opacity-70" />
+                        <div className="absolute left-2 top-2 border border-border bg-background/70 px-2 py-1 font-mono text-[8px] tracking-[0.12em] text-foreground backdrop-blur-md sm:left-4 sm:top-4 sm:text-[9px]">
                           {edit.format}
                         </div>
-                        <div className="absolute right-4 top-4 flex gap-2">
-                          {edit.favorite && (
-                            <Heart
-                              className="size-4 fill-primary text-primary"
-                              aria-label="Favorite"
-                            />
-                          )}
-                          <span className="font-mono text-[10px] text-foreground">
-                            {edit.duration}
-                          </span>
+                        <div className="absolute right-2 top-2 rounded-md bg-background/70 px-2 py-1 font-mono text-[9px] text-foreground backdrop-blur-md sm:right-4 sm:top-4 sm:text-[10px]">
+                          {edit.duration}
                         </div>
-                        <span className="play-pulse absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
                         <Button
                           aria-label={`Play ${edit.title}`}
                           onClick={() => setSelected(edit)}
                           size="icon"
-                          className="absolute left-1/2 top-1/2 size-12 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/70 bg-background/55 text-primary opacity-100 shadow-[0_0_30px_var(--primary-glow)] backdrop-blur-xl transition-all duration-500 hover:scale-110 hover:bg-primary hover:text-primary-foreground sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                          className="absolute left-1/2 top-1/2 size-11 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/70 bg-background/60 text-primary shadow-[0_0_24px_var(--primary-glow)] backdrop-blur-xl transition-transform hover:scale-105 hover:bg-primary hover:text-primary-foreground sm:size-12"
                         >
                           <Play className="ml-0.5 size-4 fill-current" />
                         </Button>
+                      </div>
+                      <div className="min-w-0 p-3 sm:p-5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <h3 className="line-clamp-2 break-words font-display text-base leading-tight sm:text-2xl">
+                              {edit.title}
+                            </h3>
+                            <p className="mt-1 line-clamp-1 text-[10px] text-muted-foreground sm:text-xs">
+                              {edit.section ?? edit.note}
+                            </p>
+                          </div>
+                          <span className="shrink-0 border border-border px-1.5 py-1 font-mono text-[8px] text-muted-foreground sm:px-2 sm:text-[9px]">
+                            {edit.size}
+                          </span>
+                        </div>
                         {edit.videoUrl && (
-                          <div className="absolute bottom-3 right-3 z-20 flex gap-1 rounded-full border border-border/70 bg-background/80 p-1 backdrop-blur-md">
+                          <div className="mt-3 flex items-center justify-between border-y border-border/80 py-1 sm:mt-5 sm:py-2">
                             <Button
                               title={edit.favorite ? "Remove from Favorites" : "Add to Favorites"}
                               aria-label={
@@ -846,7 +852,7 @@ function Index() {
                               variant="ghost"
                               size="icon"
                               onClick={() => void toggleFavorite(edit)}
-                              className="size-11 text-foreground hover:bg-primary/20 hover:text-primary"
+                              className="size-9 text-foreground hover:bg-primary/20 hover:text-primary sm:size-10"
                             >
                               <Heart
                                 className={`size-4 ${edit.favorite ? "fill-primary text-primary" : ""}`}
@@ -854,12 +860,11 @@ function Index() {
                             </Button>
                             <Button
                               title="Share video file"
-
                               aria-label={`Share ${edit.title}`}
                               variant="ghost"
                               size="icon"
                               onClick={() => void shareEdit(edit)}
-                              className="size-11 text-foreground hover:bg-primary/20 hover:text-primary"
+                              className="size-9 text-foreground hover:bg-primary/20 hover:text-primary sm:size-10"
                             >
                               <Share2 className="size-4" />
                             </Button>
@@ -869,7 +874,7 @@ function Index() {
                               variant="ghost"
                               size="icon"
                               onClick={() => void downloadEdit(edit)}
-                              className="size-11 text-foreground hover:bg-primary/20 hover:text-primary"
+                              className="size-9 text-foreground hover:bg-primary/20 hover:text-primary sm:size-10"
                             >
                               <Download className="size-4" />
                             </Button>
@@ -879,31 +884,22 @@ function Index() {
                               variant="ghost"
                               size="icon"
                               onClick={() => void deleteEdit(edit)}
-                              className="size-11 text-foreground hover:bg-destructive/20 hover:text-destructive"
+                              className="size-9 text-foreground hover:bg-destructive/20 hover:text-destructive sm:size-10"
                             >
                               <Trash2 className="size-4" />
                             </Button>
                           </div>
                         )}
-                      </div>
-                      <div className="min-w-0 p-3 sm:p-5">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <h3 className="break-words font-display text-lg leading-tight sm:text-2xl">
-                              {edit.title}
-                            </h3>
-                            <p className="mt-1 line-clamp-2 text-[10px] text-muted-foreground sm:text-xs">
-                              {edit.note}
-                            </p>
-                          </div>
-                          <span className="shrink-0 border border-border px-2 py-1 font-mono text-[9px] text-muted-foreground">
-                            {edit.size}
-                          </span>
-                        </div>
-                        <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
+                        <div className="mt-3 flex items-center justify-between sm:mt-5">
                           <span className="truncate font-mono text-[8px] tracking-[0.08em] text-muted-foreground sm:text-[9px] sm:tracking-[0.13em]">
                             {edit.date}
                           </span>
+                          {edit.favorite && !edit.videoUrl && (
+                            <Heart
+                              className="size-3.5 fill-primary text-primary"
+                              aria-label="Favorite"
+                            />
+                          )}
                         </div>
                       </div>
                     </motion.article>
