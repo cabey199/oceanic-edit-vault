@@ -187,7 +187,7 @@ async function listArchiveItems(request: Request, env: RuntimeEnv) {
   if (!admin) return json({ error: "Archive service is not configured yet." }, 503);
   const auth = await requireViewer(request, admin);
   if ("error" in auth) return json({ error: auth.error }, 401);
-  const { data, error } = await admin
+  const primaryResult = await admin
     .from("archive_items")
     .select(
       "id,title,note,section_name,format,duration_seconds,width,height,favorite,created_at,archive_media_objects(kind,object_key,byte_size,content_type)",
@@ -195,9 +195,26 @@ async function listArchiveItems(request: Request, env: RuntimeEnv) {
     .eq("archived", false)
     .in("status", ["ready", "processing"])
     .order("created_at", { ascending: false });
-  if (error) return json({ error: error.message }, 500);
 
-  const items = ((data ?? []) as ArchiveRow[]).map((item) => ({
+  // Keep deployments usable while the section migration is being applied.
+  // Supabase returns a missing-column error when the new schema is not live yet.
+  let archiveData = primaryResult.data;
+  let archiveError = primaryResult.error;
+  if (archiveError && /section_name|column/i.test(archiveError.message)) {
+    const legacyResult = await admin
+      .from("archive_items")
+      .select(
+        "id,title,note,format,duration_seconds,width,height,favorite,created_at,archive_media_objects(kind,object_key,byte_size,content_type)",
+      )
+      .eq("archived", false)
+      .in("status", ["ready", "processing"])
+      .order("created_at", { ascending: false });
+    archiveData = (legacyResult.data ?? []).map((item) => ({ ...item, section_name: null }));
+    archiveError = legacyResult.error;
+  }
+  if (archiveError) return json({ error: archiveError.message }, 500);
+
+  const items = ((archiveData ?? []) as ArchiveRow[]).map((item) => ({
     id: item.id,
     title: item.title,
     note: item.note ?? "Original-quality archive edit",
