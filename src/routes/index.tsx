@@ -249,6 +249,7 @@ function Index() {
   const [notice, setNotice] = useState<string | null>(null);
   const [archiveStatus, setArchiveStatus] = useState<"loading" | "ready" | "error">("loading");
   const [theme, setTheme] = useState<OceanTheme>("calm");
+  const [sectionFilters, setSectionFilters] = useState<string[]>([]);
   const { scrollY } = useScroll();
   const surfaceTide = useMotionValue(0);
 
@@ -268,7 +269,10 @@ function Index() {
   }, []);
 
   useAnimationFrame((time) => {
-    if (reduceMotion) {
+    if (
+      reduceMotion ||
+      (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches)
+    ) {
       surfaceTide.set(0);
       return;
     }
@@ -326,6 +330,9 @@ function Index() {
           downloadUrl: item.downloadUrl,
         })),
       );
+      setSectionFilters(
+        Array.from(new Set(payload.items.map((item) => item.section ?? "General Vault"))),
+      );
       setArchiveStatus("ready");
     } catch {
       setArchiveStatus("error");
@@ -343,7 +350,7 @@ function Index() {
     if (match) setSelected(match);
   }, [archiveEdits, archiveStatus, selected]);
   useEffect(() => {
-    if (reduceMotion) return;
+    if (reduceMotion || window.matchMedia("(pointer: coarse)").matches) return;
 
     const previousScrollBehavior = document.documentElement.style.scrollBehavior;
     document.documentElement.style.scrollBehavior = "auto";
@@ -476,23 +483,84 @@ function Index() {
 
   const shareEdit = useCallback(
     async (edit: ArchiveEdit) => {
+      if (!edit.downloadUrl) return flashNotice("Sample edits cannot be shared");
       try {
-        const shareUrl = new URL(window.location.href);
-        shareUrl.searchParams.set("edit", String(edit.id));
-        const payload = {
-          title: edit.title,
-          text: `${edit.title} · chico’s POV`,
-          url: shareUrl.toString(),
-        };
-        if (navigator.share) await navigator.share(payload);
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) return flashNotice("Your session has expired");
+        const fileUrl = new URL(edit.downloadUrl, window.location.origin);
+        fileUrl.searchParams.set("access_token", session.access_token);
+        flashNotice("Preparing the video for your phone share sheet…");
+        const response = await fetch(fileUrl.toString());
+        if (!response.ok) throw new Error("Video download failed");
+        const chunks: Uint8Array[] = [];
+        const reader = response.body?.getReader();
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) chunks.push(value);
+          }
+        } else chunks.push(new Uint8Array(await response.arrayBuffer()));
+        const file = new File(
+          chunks as unknown as BlobPart[],
+          `${edit.title.replace(/[^a-z0-9_-]+/gi, "-")}.mp4`,
+          {
+            type: response.headers.get("content-type") || "video/mp4",
+          },
+        );
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+          await navigator.share({
+            title: edit.title,
+            text: `${edit.title} · chico’s POV`,
+            files: [file],
+          });
+          return;
+        }
+        const link = new URL(window.location.href);
+        link.searchParams.set("edit", String(edit.id));
+        if (navigator.share)
+          await navigator.share({
+            title: edit.title,
+            text: `${edit.title} · chico’s POV`,
+            url: link.toString(),
+          });
         else if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(shareUrl.toString());
-          flashNotice(`${edit.title} link copied`);
-        } else flashNotice("Copy this page URL to share the edit");
+          await navigator.clipboard.writeText(link.toString());
+          flashNotice("This phone cannot share video files directly, so the video link was copied");
+        }
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return;
-        flashNotice("Sharing is unavailable on this device");
+        const link = new URL(window.location.href);
+        link.searchParams.set("edit", String(edit.id));
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(link.toString());
+          flashNotice("File sharing was unavailable; the video link was copied");
+        } else flashNotice("Sharing is unavailable on this device");
       }
+    },
+    [flashNotice],
+  );
+  const toggleFavorite = useCallback(
+    async (edit: ArchiveEdit) => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return flashNotice("Your session has expired");
+      const response = await fetch(`/api/archive-items/${edit.id}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ favorite: !edit.favorite }),
+      });
+      if (!response.ok) return flashNotice("Favorite could not be updated");
+      setArchiveEdits((current) =>
+        current.map((item) => (item.id === edit.id ? { ...item, favorite: !edit.favorite } : item)),
+      );
+      flashNotice(edit.favorite ? "Removed from Favorites" : "Added to Favorites");
     },
     [flashNotice],
   );
@@ -670,19 +738,20 @@ function Index() {
               role="group"
               aria-label="Filter edits"
             >
-              {[...filters, "General Vault", "CapCut", "Raw Videos", "Personal Videos"].map(
-                (filter) => (
-                  <Button
-                    key={filter}
-                    aria-pressed={activeFilter === filter}
-                    variant="ghost"
-                    onClick={() => setActiveFilter(filter as Category)}
-                    className={`min-h-11 shrink-0 rounded-full border px-4 font-mono text-[10px] uppercase tracking-[0.12em] ${activeFilter === filter ? "border-primary bg-primary/10 text-primary shadow-[0_0_18px_var(--primary-glow)]" : "border-border bg-card/30 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"}`}
-                  >
-                    {filter}
-                  </Button>
-                ),
-              )}
+              {[
+                ...filters,
+                ...sectionFilters.filter((section) => !filters.includes(section as Category)),
+              ].map((filter) => (
+                <Button
+                  key={filter}
+                  aria-pressed={activeFilter === filter}
+                  variant="ghost"
+                  onClick={() => setActiveFilter(filter as Category)}
+                  className={`min-h-11 shrink-0 rounded-full border px-4 font-mono text-[10px] uppercase tracking-[0.12em] ${activeFilter === filter ? "border-primary bg-primary/10 text-primary shadow-[0_0_18px_var(--primary-glow)]" : "border-border bg-card/30 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"}`}
+                >
+                  {filter}
+                </Button>
+              ))}
             </div>
 
             <div className="mb-6 flex justify-end">
@@ -768,7 +837,24 @@ function Index() {
                         {edit.videoUrl && (
                           <div className="absolute bottom-3 right-3 z-20 flex gap-1 rounded-full border border-border/70 bg-background/80 p-1 backdrop-blur-md">
                             <Button
-                              title="Share edit"
+                              title={edit.favorite ? "Remove from Favorites" : "Add to Favorites"}
+                              aria-label={
+                                edit.favorite
+                                  ? `Remove ${edit.title} from Favorites`
+                                  : `Add ${edit.title} to Favorites`
+                              }
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => void toggleFavorite(edit)}
+                              className="size-11 text-foreground hover:bg-primary/20 hover:text-primary"
+                            >
+                              <Heart
+                                className={`size-4 ${edit.favorite ? "fill-primary text-primary" : ""}`}
+                              />
+                            </Button>
+                            <Button
+                              title="Share video file"
+
                               aria-label={`Share ${edit.title}`}
                               variant="ghost"
                               size="icon"

@@ -84,6 +84,13 @@ export function OceanCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const reduceMotion = useReducedMotion();
   const [shaderReady, setShaderReady] = useState(false);
+  const nightVideoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const video = nightVideoRef.current;
+    if (!video) return;
+    if (theme === "night" && !reduceMotion) void video.play().catch(() => undefined);
+    else video.pause();
+  }, [theme, reduceMotion]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -207,7 +214,7 @@ export function OceanCanvas({
         src={calmOcean}
         alt=""
         aria-hidden="true"
-        className="absolute inset-[-18%] h-[136%] w-[136%] object-cover transition-opacity duration-700"
+        className="absolute inset-[-18%] h-[136%] w-[136%] object-cover transition-opacity duration-200"
         style={{
           opacity: theme === "calm" && !shaderReady ? 1 : 0,
           filter: "brightness(1.12) saturate(.82)",
@@ -218,24 +225,25 @@ export function OceanCanvas({
       <canvas
         ref={canvasRef}
         aria-hidden="true"
-        className="absolute inset-[-8%] h-[116%] w-[116%] transition-opacity duration-700"
+        className="absolute inset-[-8%] h-[116%] w-[116%] transition-opacity duration-200"
         style={{ opacity: theme === "calm" && shaderReady ? 1 : 0 }}
       />
-      {theme === "night" && (
-        <video
-          className="absolute inset-0 h-full w-full object-cover"
-          autoPlay={!reduceMotion}
-          muted
-          loop
-          playsInline
-          preload={reduceMotion ? "none" : "auto"}
-          poster={tidalStudy}
-          aria-hidden="true"
-          style={{ filter: "brightness(.78) contrast(1.12) saturate(.9)" }}
-        >
-          <source src={nightSurf} type="video/mp4" />
-        </video>
-      )}
+      <video
+        ref={nightVideoRef}
+        className="absolute inset-0 h-full w-full object-cover transition-opacity duration-200"
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        poster={tidalStudy}
+        aria-hidden="true"
+        style={{
+          opacity: theme === "night" ? 1 : 0,
+          filter: "brightness(.78) contrast(1.12) saturate(.9)",
+        }}
+      >
+        <source src={nightSurf} type="video/mp4" />
+      </video>
       <div
         className={`absolute inset-0 ${theme === "night" ? "bg-slate-950/10" : "bg-cyan-950/10"}`}
       />

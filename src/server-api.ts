@@ -477,6 +477,31 @@ async function serveMedia(
   return new Response(object.body, { status: range ? 206 : 200, headers });
 }
 
+async function updateFavorite(request: Request, env: RuntimeEnv, itemId: string) {
+  const admin = createAdmin(env);
+  if (!admin) return json({ error: "Archive service is not configured yet." }, 503);
+  const auth = await requireEditor(request, admin);
+  if ("error" in auth) return json({ error: auth.error }, 403);
+  let payload: { favorite?: unknown };
+  try {
+    payload = (await request.json()) as { favorite?: unknown };
+  } catch {
+    return json({ error: "Request body must be valid JSON." }, 400);
+  }
+  if (typeof payload.favorite !== "boolean")
+    return json({ error: "Favorite must be true or false." }, 400);
+  const { data, error } = await admin
+    .from("archive_items")
+    .update({ favorite: payload.favorite, updated_at: new Date().toISOString() })
+    .eq("id", itemId)
+    .eq("owner_id", auth.user.id)
+    .select("id,favorite")
+    .maybeSingle();
+  if (error) return json({ error: error.message }, 500);
+  if (!data) return json({ error: "Archive item was not found." }, 404);
+  return json({ ok: true, favorite: data.favorite });
+}
+
 async function inviteUser(request: Request, env: RuntimeEnv) {
   const config = getSupabaseConfig(env);
   const admin = createAdmin(env);
@@ -538,6 +563,8 @@ export async function handleApiRequest(request: Request, env: unknown): Promise<
   const itemDeleteId = itemDeleteMatch?.[1];
   if (itemDeleteId && request.method === "DELETE")
     return deleteArchiveItem(request, runtime, itemDeleteId);
+  if (itemDeleteId && request.method === "PATCH")
+    return updateFavorite(request, runtime, itemDeleteId);
   if (url.pathname === "/api/archive-stats" && request.method === "GET")
     return getArchiveStats(request, runtime);
   const mediaMatch = url.pathname.match(

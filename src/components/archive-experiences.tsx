@@ -59,6 +59,7 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [section, setSection] = useState("General Vault");
+  const [customSection, setCustomSection] = useState("");
   const [phase, setPhase] = useState<UploadPhase>("idle");
   const [progress, setProgress] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -74,7 +75,7 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
         await onUpload(
           selectedFile,
           title.trim() || selectedFile.name.replace(/\.[^/.]+$/, ""),
-          section,
+          section === "Custom" ? customSection.trim() || "General Vault" : section,
         );
       setProgress(1);
       setPhase("ready");
@@ -108,6 +109,7 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
     setFile(null);
     setTitle("");
     setSection("General Vault");
+    setCustomSection("");
     setError(null);
     setProgress(0);
     setPhase("idle");
@@ -213,7 +215,16 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
                 <option>CapCut</option>
                 <option>Raw Videos</option>
                 <option>Personal Videos</option>
+                <option value="Custom">Custom section…</option>
               </select>
+              {section === "Custom" && (
+                <input
+                  value={customSection}
+                  onChange={(event) => setCustomSection(event.target.value)}
+                  placeholder="e.g. Wedding edits"
+                  className="mt-2 w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                />
+              )}
             </label>
             {error && !file && (
               <p
