@@ -324,6 +324,45 @@
     box-shadow: inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
   }
 
+  .ocean-select {
+    min-height: 3rem;
+    appearance: none;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.75rem 2.75rem 0.75rem 0.875rem;
+    color: var(--foreground);
+    background-color: color-mix(in oklab, var(--background) 72%, transparent);
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+      linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+    background-position:
+      calc(100% - 1.15rem) 1.35rem,
+      calc(100% - 0.85rem) 1.35rem;
+    background-size: 0.35rem 0.35rem;
+    background-repeat: no-repeat;
+    color-scheme: dark;
+    transition:
+      border-color 0.2s ease,
+      background-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  .ocean-select:hover {
+    border-color: color-mix(in oklab, var(--primary) 48%, transparent);
+    background-color: color-mix(in oklab, var(--primary) 7%, var(--background));
+  }
+
+  .ocean-select:focus-visible {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 24%, transparent);
+  }
+
+  .ocean-select option {
+    background: var(--background);
+    color: var(--foreground);
+  }
+
   .hero-readable-overlay {
     background: linear-gradient(
       to bottom,

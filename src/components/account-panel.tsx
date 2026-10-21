@@ -418,7 +418,7 @@ export function AccountPanel({ open, onClose, onNotice, onSignedOut }: AccountPa
                     aria-label="Invite role"
                     value={inviteRole}
                     onChange={(event) => setInviteRole(event.target.value as "viewer" | "editor")}
-                    className="rounded-lg border border-border bg-background/30 px-3 py-3 text-base text-foreground transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
+                    className="ocean-select min-w-0 w-full"
                   >
                     <option value="viewer">Viewer</option>
                     <option value="editor">Editor</option>

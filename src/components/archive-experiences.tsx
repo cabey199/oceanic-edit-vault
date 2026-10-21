@@ -210,7 +210,7 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
               <select
                 value={section}
                 onChange={(event) => setSection(event.target.value)}
-                className="mt-2 w-full rounded-lg border border-border bg-background/40 px-3 py-3 text-sm text-foreground focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                className="ocean-select mt-2 w-full"
               >
                 <option>General Vault</option>
                 <option>CapCut</option>
