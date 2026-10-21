@@ -224,6 +224,7 @@ async function listArchiveItems(request: Request, env: RuntimeEnv) {
     width: item.width,
     height: item.height,
     favorite: item.favorite,
+    createdAt: item.created_at,
     size: item.archive_media_objects.find((media) => media.kind === "original")?.byte_size ?? 0,
     thumbnailUrl: `${new URL(request.url).origin}/api/archive-items/${item.id}/media/thumbnail`,
     mediaUrl: `${new URL(request.url).origin}/api/archive-items/${item.id}/media/${item.archive_media_objects.some((media) => media.kind === "playback") ? "playback" : "original"}`,

@@ -294,14 +294,14 @@
     background-color: var(--background);
     background-image: var(--ocean-backdrop);
     transition-property:
-      --background, --foreground, --card, --card-foreground, --popover, --popover-foreground, --primary,
-      --primary-foreground, --primary-glow, --secondary, --secondary-foreground, --muted,
+      --background, --foreground, --card, --card-foreground, --popover, --popover-foreground,
+      --primary, --primary-foreground, --primary-glow, --secondary, --secondary-foreground, --muted,
       --muted-foreground, --accent, --accent-foreground, --border, --input, --ring, --glass-surface,
-      --glass-border, --hero-overlay, --hero-overlay-soft, --hero-overlay-strong, background-color, color;
+      --glass-border, --hero-overlay, --hero-overlay-soft, --hero-overlay-strong, background-color,
+      color;
     transition-duration: 1.2s;
     transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
-
 
   .ocean-brand {
     text-shadow: 0 0 16px color-mix(in oklab, var(--primary) 44%, transparent);
@@ -310,12 +310,17 @@
   .ocean-archive button {
     -webkit-backdrop-filter: blur(12px) saturate(145%);
     backdrop-filter: blur(12px) saturate(145%);
-    box-shadow: inset 0 1px 0 color-mix(in oklab, white 16%, transparent), 0 4px 16px
-      oklch(0 0 0 / 18%);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 16%, transparent),
+      0 4px 16px oklch(0 0 0 / 18%);
   }
 
   .ocean-archive input:is([type="email"], [type="password"]) {
-    background-image: linear-gradient(145deg, color-mix(in oklab, white 7%, transparent), transparent 55%);
+    background-image: linear-gradient(
+      145deg,
+      color-mix(in oklab, white 7%, transparent),
+      transparent 55%
+    );
     box-shadow: inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
   }
 
@@ -638,11 +643,6 @@
 }
 
 @media (max-width: 639px) {
-  .ocean-archive #vault article,
-  .ocean-archive #vault article:nth-child(3n + 2),
-  .ocean-archive #vault article:nth-child(3n) {
-    translate: none;
-  }
   .ocean-archive .glass-card {
     box-shadow: 0 6px 22px oklch(0 0 0 / 26%);
     -webkit-backdrop-filter: blur(10px) saturate(115%);

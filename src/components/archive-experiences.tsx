@@ -32,6 +32,7 @@ export type ArchiveEdit = {
   image: string;
   size: string;
   date: string;
+  createdAt?: string;
   duration: string;
   format: "9:16" | "16:9";
   favorite: boolean;

@@ -14,6 +14,7 @@ import {
   Download,
   Heart,
   LockKeyhole,
+  MoreHorizontal,
   Moon,
   Play,
   RefreshCw,
@@ -93,6 +94,51 @@ function PrivateThumbnail({
     <img src={source} alt={alt} className={className} />
   ) : (
     <div aria-label={alt} role="img" className={`${className ?? ""} animate-pulse bg-primary/5`} />
+  );
+}
+
+function PrivateVideoPreview({
+  src,
+  poster,
+  title,
+}: {
+  src: string;
+  poster: string;
+  title: string;
+}) {
+  const [source, setSource] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!active || !session) return;
+      const url = new URL(src, window.location.origin);
+      url.searchParams.set("access_token", session.access_token);
+      setSource(url.toString());
+    });
+    return () => {
+      active = false;
+    };
+  }, [src]);
+  if (!source) return null;
+  return (
+    <video
+      src={source}
+      poster={poster}
+      muted
+      loop
+      playsInline
+      preload="none"
+      aria-label={`${title} preview`}
+      className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+      onMouseEnter={(event) => void event.currentTarget.play().catch(() => undefined)}
+      onMouseLeave={(event) => {
+        event.currentTarget.pause();
+        event.currentTarget.currentTime = 0;
+      }}
+      onTimeUpdate={(event) => {
+        if (event.currentTarget.currentTime >= 3) event.currentTarget.currentTime = 0;
+      }}
+    />
   );
 }
 
@@ -252,6 +298,7 @@ function Index() {
   const [archiveStatus, setArchiveStatus] = useState<"loading" | "ready" | "error">("loading");
   const [theme, setTheme] = useState<OceanTheme>("calm");
   const [sectionFilters, setSectionFilters] = useState<string[]>([]);
+  const [moreOpen, setMoreOpen] = useState<string | number | null>(null);
   const { scrollY } = useScroll();
   const lenis = useSmoothScroll();
   const surfaceTide = useMotionValue(0);
@@ -315,6 +362,7 @@ function Index() {
           mediaUrl: string;
           downloadUrl: string;
           section?: string;
+          createdAt?: string;
         }>;
       };
       if (!payload.items) throw new Error("Archive response was incomplete.");
@@ -326,9 +374,12 @@ function Index() {
           section: item.section ?? "General Vault",
           image: item.thumbnailUrl,
           size: formatBytes(item.size),
-          date: new Date()
-            .toLocaleDateString(undefined, { month: "short", day: "2-digit", year: "numeric" })
-            .toUpperCase(),
+          date: item.createdAt
+            ? new Date(item.createdAt)
+                .toLocaleDateString(undefined, { month: "short", day: "2-digit", year: "numeric" })
+                .toUpperCase()
+            : "Date unavailable",
+          createdAt: item.createdAt,
           duration: formatDuration(item.duration),
           format: item.format,
           favorite: item.favorite,
@@ -655,63 +706,84 @@ function Index() {
           className="relative px-5 py-20 sm:px-8 sm:py-28"
         >
           <div className="mx-auto max-w-7xl">
-            <div className="flex flex-col justify-between gap-8 border-b border-border pb-8 sm:flex-row sm:items-end">
+            <div className="flex flex-col justify-between gap-6 border-b border-border pb-8 sm:flex-row sm:items-end">
               <div>
-                <p className="mb-3 font-mono text-[9px] uppercase tracking-[0.3em] text-primary">
-                  Volume 01 · Archive / 2026
+                <h2 className="font-display text-4xl font-light sm:text-5xl">Deep Water Studies</h2>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Your private collection of edits.
                 </p>
-                <h2 className="font-display text-4xl italic font-light sm:text-5xl">
-                  Deep Water Studies
-                </h2>
               </div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                {archiveEdits.length.toString().padStart(2, "0")} edits ·{" "}
-                {formatBytes(
-                  archiveEdits.reduce(
-                    (total, edit) =>
-                      total +
-                      Number.parseFloat(edit.size) *
-                        (edit.size.includes("MB") ? 1024 * 1024 : 1024),
-                    0,
-                  ),
-                )}
-              </p>
-            </div>
-
-            <div
-              className="ios-scroll-x no-scrollbar my-8 flex gap-2 overflow-x-auto pb-2"
-              role="group"
-              aria-label="Filter edits"
-            >
-              {[
-                ...filters,
-                ...sectionFilters.filter((section) => !filters.includes(section as Category)),
-              ].map((filter) => (
+              <div className="flex items-center gap-4">
+                <p className="text-sm text-muted-foreground">
+                  {archiveEdits.length} edits ·{" "}
+                  {formatBytes(
+                    archiveEdits.reduce(
+                      (total, edit) =>
+                        total +
+                        Number.parseFloat(edit.size) *
+                          (edit.size.includes("MB") ? 1024 * 1024 : 1024),
+                      0,
+                    ),
+                  )}
+                </p>
                 <Button
-                  key={filter}
-                  aria-pressed={activeFilter === filter}
-                  variant="ghost"
-                  onClick={() => setActiveFilter(filter as Category)}
-                  className={`min-h-11 shrink-0 rounded-full border px-4 font-mono text-[10px] uppercase tracking-[0.12em] ${activeFilter === filter ? "border-primary bg-primary/10 text-primary shadow-[0_0_18px_var(--primary-glow)]" : "border-border bg-card/30 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"}`}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void loadArchive()}
+                  disabled={archiveStatus === "loading"}
+                  className="gap-2"
                 >
-                  {filter}
+                  <RefreshCw
+                    className={`size-3.5 ${archiveStatus === "loading" ? "animate-spin" : ""}`}
+                  />
+                  Refresh
                 </Button>
-              ))}
+              </div>
             </div>
 
-            <div className="mb-6 flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void loadArchive()}
-                disabled={archiveStatus === "loading"}
-                className="gap-2 font-mono text-[10px] uppercase tracking-[0.12em]"
-              >
-                <RefreshCw
-                  className={`size-3.5 ${archiveStatus === "loading" ? "animate-spin" : ""}`}
-                />
-                Refresh vault
-              </Button>
+            <div className="my-8 space-y-4" aria-label="Filter edits">
+              <div>
+                <p className="mb-2 text-sm font-medium text-foreground">Browse by shape</p>
+                <div
+                  className="ios-scroll-x no-scrollbar flex gap-2 overflow-x-auto pb-1"
+                  role="group"
+                  aria-label="Filter by shape"
+                >
+                  {filters.map((filter) => (
+                    <Button
+                      key={filter}
+                      aria-pressed={activeFilter === filter}
+                      variant="ghost"
+                      onClick={() => setActiveFilter(filter)}
+                      className={`min-h-11 shrink-0 rounded-full border px-4 text-sm ${activeFilter === filter ? "border-primary bg-primary/10 text-primary shadow-[0_0_18px_var(--primary-glow)]" : "border-border bg-card/30 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"}`}
+                    >
+                      {filter === "TikTok / Reels" ? "Portrait" : filter}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              {sectionFilters.length > 0 && (
+                <div>
+                  <p className="mb-2 text-sm font-medium text-foreground">Browse by section</p>
+                  <div
+                    className="ios-scroll-x no-scrollbar flex gap-2 overflow-x-auto pb-1"
+                    role="group"
+                    aria-label="Filter by section"
+                  >
+                    {sectionFilters.map((filter) => (
+                      <Button
+                        key={filter}
+                        aria-pressed={activeFilter === filter}
+                        variant="ghost"
+                        onClick={() => setActiveFilter(filter as Category)}
+                        className={`min-h-11 shrink-0 rounded-full border px-4 text-sm ${activeFilter === filter ? "border-primary bg-primary/10 text-primary shadow-[0_0_18px_var(--primary-glow)]" : "border-border bg-card/30 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"}`}
+                      >
+                        {filter}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {archiveStatus !== "ready" && (
@@ -749,12 +821,21 @@ function Index() {
                       {...(reduceMotion ? {} : { whileHover: { y: -4 } })}
                       className="glass-card group min-w-0 max-w-full overflow-hidden"
                     >
-                      <div className="relative aspect-[4/3] min-h-0 overflow-hidden rounded-t-[inherit] bg-secondary sm:aspect-auto sm:h-64">
+                      <div
+                        className={`relative min-h-0 overflow-hidden rounded-t-[inherit] bg-secondary ${edit.format === "9:16" ? "aspect-[9/16]" : "aspect-[16/10]"}`}
+                      >
                         <PrivateThumbnail
                           src={edit.image}
                           alt={`${edit.title} video thumbnail`}
                           className="absolute inset-0 h-full w-full object-cover opacity-90 transition-opacity duration-200 group-hover:opacity-100"
                         />
+                        {edit.videoUrl && (
+                          <PrivateVideoPreview
+                            src={edit.videoUrl}
+                            poster={edit.image}
+                            title={edit.title}
+                          />
+                        )}
                         <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--card),transparent_58%)] opacity-70" />
                         <div className="absolute left-2 top-2 border border-border bg-background/70 px-2 py-1 font-mono text-[8px] tracking-[0.12em] text-foreground backdrop-blur-md sm:left-4 sm:top-4 sm:text-[9px]">
                           {edit.format}
@@ -786,53 +867,71 @@ function Index() {
                           </span>
                         </div>
                         {edit.videoUrl && (
-                          <div className="mt-3 flex items-center justify-between border-y border-border/80 py-1 sm:mt-5 sm:py-2">
-                            <Button
-                              title={edit.favorite ? "Remove from Favorites" : "Add to Favorites"}
-                              aria-label={
-                                edit.favorite
-                                  ? `Remove ${edit.title} from Favorites`
-                                  : `Add ${edit.title} to Favorites`
-                              }
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => void toggleFavorite(edit)}
-                              className="size-9 text-foreground hover:bg-primary/20 hover:text-primary sm:size-10"
-                            >
-                              <Heart
-                                className={`size-4 ${edit.favorite ? "fill-primary text-primary" : ""}`}
-                              />
-                            </Button>
-                            <Button
-                              title="Share video file"
-                              aria-label={`Share ${edit.title}`}
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => void shareEdit(edit)}
-                              className="size-9 text-foreground hover:bg-primary/20 hover:text-primary sm:size-10"
-                            >
-                              <Share2 className="size-4" />
-                            </Button>
-                            <Button
-                              title="Download MP4"
-                              aria-label={`Download ${edit.title}`}
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => void downloadEdit(edit)}
-                              className="size-9 text-foreground hover:bg-primary/20 hover:text-primary sm:size-10"
-                            >
-                              <Download className="size-4" />
-                            </Button>
-                            <Button
-                              title="Delete upload"
-                              aria-label={`Delete ${edit.title}`}
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => void deleteEdit(edit)}
-                              className="size-9 text-foreground hover:bg-destructive/20 hover:text-destructive sm:size-10"
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
+                          <div className="mt-3 border-y border-border/80 py-1 sm:mt-5 sm:py-2">
+                            <div className="flex items-center justify-between">
+                              <Button
+                                title={edit.favorite ? "Remove from Favorites" : "Add to Favorites"}
+                                aria-label={
+                                  edit.favorite
+                                    ? `Remove ${edit.title} from Favorites`
+                                    : `Add ${edit.title} to Favorites`
+                                }
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => void toggleFavorite(edit)}
+                                className="size-9 text-foreground hover:bg-primary/20 hover:text-primary sm:size-10"
+                              >
+                                <Heart
+                                  className={`size-4 ${edit.favorite ? "fill-primary text-primary" : ""}`}
+                                />
+                              </Button>
+                              <Button
+                                title="Download MP4"
+                                aria-label={`Download ${edit.title}`}
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => void downloadEdit(edit)}
+                                className="size-9 text-foreground hover:bg-primary/20 hover:text-primary sm:size-10"
+                              >
+                                <Download className="size-4" />
+                              </Button>
+                              <Button
+                                title="More actions"
+                                aria-label={`More actions for ${edit.title}`}
+                                variant="ghost"
+                                size="icon"
+                                onClick={() =>
+                                  setMoreOpen((current) => (current === edit.id ? null : edit.id))
+                                }
+                                className="size-10 text-foreground hover:bg-primary/20 hover:text-primary"
+                              >
+                                <MoreHorizontal className="size-5" />
+                              </Button>
+                            </div>
+                            {moreOpen === edit.id && (
+                              <div className="mt-2 flex gap-2 border-t border-border/60 pt-2">
+                                <Button
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setMoreOpen(null);
+                                    void shareEdit(edit);
+                                  }}
+                                  className="min-h-10 flex-1 justify-start gap-2 text-sm"
+                                >
+                                  <Share2 className="size-4" /> Share
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setMoreOpen(null);
+                                    void deleteEdit(edit);
+                                  }}
+                                  className="min-h-10 flex-1 justify-start gap-2 text-sm text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                >
+                                  <Trash2 className="size-4" /> Delete
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         )}
                         <div className="mt-3 flex items-center justify-between sm:mt-5">
