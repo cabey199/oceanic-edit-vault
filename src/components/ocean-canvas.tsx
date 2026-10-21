@@ -2,7 +2,7 @@ import { motion, useReducedMotion, type MotionValue } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
 import calmOcean from "@/assets/calm-ocean.jpg";
-import nightSurf from "@/assets/night-surf.mp4";
+import nightSurf from "@/assets/night-surf-loop.mp4";
 import tidalStudy from "@/assets/tidal-study.jpg";
 
 const vertexSource = `
@@ -214,7 +214,7 @@ export function OceanCanvas({
         src={calmOcean}
         alt=""
         aria-hidden="true"
-        className="absolute inset-[-18%] h-[136%] w-[136%] object-cover transition-opacity duration-200"
+        className="absolute inset-[-18%] h-[136%] w-[136%] object-cover transition-opacity duration-[1400ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
         style={{
           opacity: theme === "calm" && !shaderReady ? 1 : 0,
           filter: "brightness(1.12) saturate(.82)",
@@ -225,12 +225,12 @@ export function OceanCanvas({
       <canvas
         ref={canvasRef}
         aria-hidden="true"
-        className="absolute inset-[-8%] h-[116%] w-[116%] transition-opacity duration-200"
+        className="absolute inset-[-8%] h-[116%] w-[116%] transition-opacity duration-[1400ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
         style={{ opacity: theme === "calm" && shaderReady ? 1 : 0 }}
       />
       <video
         ref={nightVideoRef}
-        className="absolute inset-0 h-full w-full object-cover transition-opacity duration-200"
+        className="absolute inset-0 h-full w-full object-cover transition-opacity duration-[1400ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
         muted
         loop
         playsInline
@@ -245,15 +245,20 @@ export function OceanCanvas({
         <source src={nightSurf} type="video/mp4" />
       </video>
       <div
-        className={`absolute inset-0 ${theme === "night" ? "bg-slate-950/10" : "bg-cyan-950/10"}`}
+        className={`absolute inset-0 transition-colors duration-[1400ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${theme === "night" ? "bg-slate-950/10" : "bg-cyan-950/10"}`}
       />
       <div
-        className="absolute inset-0"
+        className={`absolute inset-0 transition-opacity duration-[1400ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${theme === "night" ? "opacity-100" : "opacity-0"}`}
         style={{
           background:
-            theme === "night"
-              ? "linear-gradient(180deg, rgba(3,7,18,.08) 0%, rgba(3,7,18,.1) 42%, rgba(3,7,18,.34) 100%)"
-              : "linear-gradient(180deg, rgba(3,7,18,.06) 0%, rgba(3,7,18,.08) 42%, rgba(3,7,18,.4) 100%)",
+            "linear-gradient(180deg, rgba(3,7,18,.08) 0%, rgba(3,7,18,.1) 42%, rgba(3,7,18,.34) 100%)",
+        }}
+      />
+      <div
+        className={`absolute inset-0 transition-opacity duration-[1400ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${theme === "calm" ? "opacity-100" : "opacity-0"}`}
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(3,7,18,.06) 0%, rgba(3,7,18,.08) 42%, rgba(3,7,18,.4) 100%)",
         }}
       />
     </div>
