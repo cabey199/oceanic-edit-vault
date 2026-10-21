@@ -2,6 +2,122 @@
 @source "../src";
 @import "tw-animate-css";
 
+@property --background {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0f172a;
+}
+@property --foreground {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.975 0.004 248);
+}
+@property --card {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.205 0.051 264);
+}
+@property --card-foreground {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.975 0.004 248);
+}
+@property --popover {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.205 0.051 264);
+}
+@property --popover-foreground {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.975 0.004 248);
+}
+@property --primary {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.79 0.12 210);
+}
+@property --primary-foreground {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.145 0.035 265);
+}
+@property --primary-glow {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.79 0.12 210 / 28%);
+}
+@property --secondary {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.43 0.13 239);
+}
+@property --secondary-foreground {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.975 0.004 248);
+}
+@property --muted {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.25 0.04 263);
+}
+@property --muted-foreground {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.69 0.035 255);
+}
+@property --accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.43 0.13 239);
+}
+@property --accent-foreground {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.975 0.004 248);
+}
+@property --border {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.79 0.12 210 / 18%);
+}
+@property --input {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.79 0.12 210 / 24%);
+}
+@property --ring {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.79 0.12 210);
+}
+@property --glass-surface {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.205 0.051 264 / 50%);
+}
+@property --glass-border {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.79 0.12 210 / 20%);
+}
+@property --hero-overlay {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.145 0.035 265 / 44%);
+}
+@property --hero-overlay-soft {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.145 0.035 265 / 18%);
+}
+@property --hero-overlay-strong {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.145 0.035 265 / 52%);
+}
+
 @custom-variant dark (&:is(.dark *));
 
 /*
@@ -160,7 +276,7 @@
   }
 
   html {
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
   }
 
   button,
@@ -177,13 +293,30 @@
   .ocean-archive {
     background-color: var(--background);
     background-image: var(--ocean-backdrop);
-    transition:
-      background-color 0.7s ease,
-      color 0.7s ease;
+    transition-property:
+      --background, --foreground, --card, --card-foreground, --popover, --popover-foreground, --primary,
+      --primary-foreground, --primary-glow, --secondary, --secondary-foreground, --muted,
+      --muted-foreground, --accent, --accent-foreground, --border, --input, --ring, --glass-surface,
+      --glass-border, --hero-overlay, --hero-overlay-soft, --hero-overlay-strong, background-color, color;
+    transition-duration: 1.2s;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
+
 
   .ocean-brand {
     text-shadow: 0 0 16px color-mix(in oklab, var(--primary) 44%, transparent);
+  }
+
+  .ocean-archive button {
+    -webkit-backdrop-filter: blur(12px) saturate(145%);
+    backdrop-filter: blur(12px) saturate(145%);
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 16%, transparent), 0 4px 16px
+      oklch(0 0 0 / 18%);
+  }
+
+  .ocean-archive input:is([type="email"], [type="password"]) {
+    background-image: linear-gradient(145deg, color-mix(in oklab, white 7%, transparent), transparent 55%);
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
   }
 
   .hero-readable-overlay {
@@ -258,22 +391,33 @@
 }
 
 @utility glass-panel {
-  background: var(--glass-surface);
+  background:
+    linear-gradient(145deg, color-mix(in oklab, white 10%, transparent), transparent 42%),
+    var(--glass-surface);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-2xl);
-  box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: blur(20px) saturate(125%);
-  backdrop-filter: blur(20px) saturate(125%);
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 color-mix(in oklab, white 24%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(155%);
+  backdrop-filter: blur(24px) saturate(155%);
+  transition: box-shadow 1.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @utility glass-card {
-  background: var(--glass-surface);
+  background:
+    linear-gradient(145deg, color-mix(in oklab, white 8%, transparent), transparent 44%),
+    var(--glass-surface);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: blur(20px) saturate(125%);
-  backdrop-filter: blur(20px) saturate(125%);
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 color-mix(in oklab, white 20%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(155%);
+  backdrop-filter: blur(24px) saturate(155%);
   transition:
+    --glass-surface 1.2s cubic-bezier(0.22, 1, 0.36, 1),
+    --glass-border 1.2s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.24s ease,
     border-color 0.24s ease,
     box-shadow 0.24s ease;

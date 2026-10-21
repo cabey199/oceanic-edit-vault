@@ -34,6 +34,7 @@ import {
   type ArchiveEdit,
 } from "@/components/archive-experiences";
 import { OceanCanvas } from "@/components/ocean-canvas";
+import { useSmoothScroll } from "@/hooks/use-smooth-scroll";
 import { supabase } from "@/lib/supabase";
 import coastalMemory from "@/assets/coastal-memory.jpg";
 import neonAfterglow from "@/assets/neon-afterglow.jpg";
@@ -251,6 +252,7 @@ function Index() {
   const [theme, setTheme] = useState<OceanTheme>("calm");
   const [sectionFilters, setSectionFilters] = useState<string[]>([]);
   const { scrollY } = useScroll();
+  const lenis = useSmoothScroll();
   const surfaceTide = useMotionValue(0);
 
   // Handle invite links and magic link hash parameters cleanly
@@ -349,65 +351,6 @@ function Index() {
     const match = archiveEdits.find((edit) => String(edit.id) === requested);
     if (match) setSelected(match);
   }, [archiveEdits, archiveStatus, selected]);
-  useEffect(() => {
-    if (reduceMotion || window.matchMedia("(pointer: coarse)").matches) return;
-
-    const previousScrollBehavior = document.documentElement.style.scrollBehavior;
-    document.documentElement.style.scrollBehavior = "auto";
-    let targetScroll = window.scrollY;
-    let frame = 0;
-    let previousFrameTime = 0;
-
-    const drift = (time: number) => {
-      const elapsed = previousFrameTime ? Math.min(time - previousFrameTime, 64) : 16;
-      previousFrameTime = time;
-      const currentScroll = window.scrollY;
-      const difference = targetScroll - currentScroll;
-      if (Math.abs(difference) < 0.6) {
-        window.scrollTo(0, targetScroll);
-        frame = 0;
-        previousFrameTime = 0;
-        return;
-      }
-      const damping = 1 - Math.exp(-elapsed / 100);
-      window.scrollTo(0, currentScroll + difference * damping);
-      frame = window.requestAnimationFrame(drift);
-    };
-
-    const handleWheel = (event: WheelEvent) => {
-      const target = event.target;
-      if (
-        event.ctrlKey ||
-        !(target instanceof Element) ||
-        target.closest(
-          'input, textarea, select, [contenteditable="true"], [role="dialog"], [data-native-scroll]',
-        )
-      )
-        return;
-
-      const delta =
-        event.deltaY *
-        (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1);
-      const maximum = document.documentElement.scrollHeight - window.innerHeight;
-      const nextScroll = Math.max(
-        0,
-        Math.min(maximum, (frame ? targetScroll : window.scrollY) + delta),
-      );
-      if (nextScroll === (frame ? targetScroll : window.scrollY)) return;
-
-      event.preventDefault();
-      targetScroll = nextScroll;
-      if (!frame) frame = window.requestAnimationFrame(drift);
-    };
-
-    window.addEventListener("wheel", handleWheel, { passive: false });
-    return () => {
-      window.removeEventListener("wheel", handleWheel);
-      window.cancelAnimationFrame(frame);
-      document.documentElement.style.scrollBehavior = previousScrollBehavior;
-    };
-  }, [reduceMotion]);
-
   const visibleEdits = useMemo(
     () =>
       archiveEdits.filter((edit) => {
@@ -685,9 +628,7 @@ function Index() {
           <div>
             <Button
               size="lg"
-              onClick={() =>
-                document.querySelector("#vault")?.scrollIntoView({ behavior: "smooth" })
-              }
+              onClick={() => lenis?.scrollTo("#vault")}
               className="mt-11 h-12 border border-primary/40 bg-primary/10 px-7 text-[10px] uppercase tracking-[0.2em] text-primary shadow-[0_0_32px_var(--primary-glow)] backdrop-blur-xl hover:bg-primary hover:text-primary-foreground"
             >
               Enter archive <ArrowDown className="size-4" />
