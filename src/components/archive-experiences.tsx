@@ -702,17 +702,34 @@ export function CinematicPlayer({
     setVideoSource(null);
     setMediaError(null);
     if (!edit?.videoUrl) return;
+    let active = true;
+    const applySession = (accessToken: string) => {
+      const url = new URL(edit.videoUrl!, window.location.origin);
+      url.searchParams.set("access_token", accessToken);
+      if (active) setVideoSource(url.toString());
+    };
     void (async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) throw new Error("Your session has expired.");
-      const url = new URL(edit.videoUrl!, window.location.origin);
-      url.searchParams.set("access_token", session.access_token);
-      setVideoSource(url.toString());
+      applySession(session.access_token);
     })().catch((error: unknown) => {
-      setMediaError(error instanceof Error ? error.message : "Video playback failed.");
+      if (active) setMediaError(error instanceof Error ? error.message : "Video playback failed.");
     });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "TOKEN_REFRESHED" && session) applySession(session.access_token);
+      if (event === "SIGNED_OUT" && active) {
+        setVideoSource(null);
+        setMediaError("Your session has expired. Please sign in again to play this video.");
+      }
+    });
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, [edit]);
   useEffect(() => {
     if (!edit) return;

@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import {
   AnimatePresence,
   motion,
@@ -240,6 +240,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
   const [activeFilter, setActiveFilter] = useState<Category>("All Edits");
   const [archiveEdits, setArchiveEdits] = useState<ArchiveEdit[]>(edits);
@@ -259,16 +260,19 @@ function Index() {
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         if (typeof window !== "undefined" && window.location.hash) {
           window.history.replaceState(null, "", window.location.pathname);
         }
       }
+      if (event === "SIGNED_OUT") {
+        void navigate({ to: "/login", replace: true });
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [navigate]);
 
   useAnimationFrame((time) => {
     if (
@@ -912,6 +916,7 @@ function Index() {
         open={accountOpen}
         onClose={() => setAccountOpen(false)}
         onNotice={flashNotice}
+        onSignedOut={() => void navigate({ to: "/login", replace: true })}
       />
       <AnimatePresence>
         {developerVault && <DeveloperDashboard embedded onClose={() => setDeveloperVault(false)} />}

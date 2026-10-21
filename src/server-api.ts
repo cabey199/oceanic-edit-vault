@@ -424,18 +424,27 @@ async function serveMedia(
   if ("error" in auth) return json({ error: auth.error }, 401);
   const { data: item, error } = await admin
     .from("archive_items")
-    .select("owner_id,archive_media_objects!inner(kind,object_key,content_type)")
+    .select("owner_id,archive_media_objects!inner(kind,object_key,content_type,byte_size)")
     .eq("id", itemId)
     .eq("archive_media_objects.kind", kind)
     .maybeSingle();
   if (error || !item) return json({ error: "Archive item was not found." }, 404);
   const media = (
-    item.archive_media_objects as Array<{ object_key: string; content_type: string }>
+    item.archive_media_objects as Array<{
+      object_key: string;
+      content_type: string;
+      byte_size: number;
+    }>
   )[0];
   if (!media) return json({ error: "Media file was not found." }, 404);
   const rangeHeader = request.headers.get("range");
-  const fullObject = await bucket.get(media.object_key);
-  const totalSize = fullObject?.size ?? 0;
+  let totalSize = Number(media.byte_size) || 0;
+  // Older rows may not have a recorded size. Keep a metadata fallback for them,
+  // but never make the normal playback path download the full object first.
+  if (!totalSize) {
+    const metadataObject = await bucket.get(media.object_key);
+    totalSize = metadataObject?.size ?? 0;
+  }
   if (!totalSize) return json({ error: "Stored media file was not found." }, 404);
   let range: { offset: number; length: number } | undefined;
   let rangeStart = 0;

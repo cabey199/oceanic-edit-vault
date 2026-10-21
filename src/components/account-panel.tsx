@@ -9,6 +9,7 @@ type AccountPanelProps = {
   open: boolean;
   onClose: () => void;
   onNotice: (message: string) => void;
+  onSignedOut?: () => void;
 };
 
 type Feedback = { kind: "success" | "error"; message: string } | null;
@@ -28,7 +29,7 @@ const formatBytes = (bytes: number) => {
   return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
 };
 
-export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
+export function AccountPanel({ open, onClose, onNotice, onSignedOut }: AccountPanelProps) {
   const [email, setEmail] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -117,8 +118,13 @@ export function AccountPanel({ open, onClose, onNotice }: AccountPanelProps) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
     onClose();
+    if (error) {
+      onNotice(`Could not lock the vault: ${error.message}`);
+      return;
+    }
+    onSignedOut?.();
   };
 
   const inviteUser = async (event: React.FormEvent<HTMLFormElement>) => {
