@@ -684,8 +684,8 @@
 @media (max-width: 639px) {
   .ocean-archive .glass-card {
     box-shadow: 0 6px 22px oklch(0 0 0 / 26%);
-    -webkit-backdrop-filter: blur(10px) saturate(115%);
-    backdrop-filter: blur(10px) saturate(115%);
+    -webkit-backdrop-filter: blur(7px) saturate(110%);
+    backdrop-filter: blur(7px) saturate(110%);
   }
 }
 @media (max-height: 38rem) {

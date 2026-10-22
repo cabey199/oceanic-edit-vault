@@ -332,7 +332,7 @@ function Index() {
     let lastFrame = 0;
     const startedAt = performance.now();
     const render = (time: number) => {
-      if (lowPower && time - lastFrame < 33) {
+      if (lowPower && time - lastFrame < 42) {
         surfaceFrame.current = window.requestAnimationFrame(render);
         return;
       }

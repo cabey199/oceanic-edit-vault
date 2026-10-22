@@ -96,7 +96,7 @@ export function OceanCanvas({
   useEffect(() => {
     const video = nightVideoRef.current;
     if (!video) return;
-    if (theme === "night" && !reduceMotion) void video.play().catch(() => undefined);
+    if (theme === "night") void video.play().catch(() => undefined);
     else video.pause();
   }, [theme, reduceMotion]);
 
@@ -172,7 +172,7 @@ export function OceanCanvas({
       const bounds = canvas.getBoundingClientRect();
       const ratio = Math.min(
         window.devicePixelRatio || 1,
-        lowPower ? 1 : 1.25,
+        lowPower ? 0.75 : 1.25,
         Math.sqrt(2_000_000 / (bounds.width * bounds.height)),
       );
       canvas.width = Math.max(1, Math.round(bounds.width * ratio));
@@ -183,15 +183,15 @@ export function OceanCanvas({
 
     let lastFrame = 0;
     const render = (timestamp: number) => {
-      if (lowPower && timestamp - lastFrame < 33) {
+      if (lowPower && timestamp - lastFrame < 42) {
         frame = window.requestAnimationFrame(render);
         return;
       }
       lastFrame = timestamp;
-      gl.uniform1f(uniforms.time, reduceMotion ? 0 : (timestamp - startedAt) * 0.001);
-      gl.uniform1f(uniforms.scroll, reduceMotion ? 0 : scrollY.get());
+      gl.uniform1f(uniforms.time, (timestamp - startedAt) * 0.001);
+      gl.uniform1f(uniforms.scroll, scrollY.get());
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      if (!reduceMotion) frame = window.requestAnimationFrame(render);
+      frame = window.requestAnimationFrame(render);
     };
 
     const image = new Image();
@@ -233,7 +233,7 @@ export function OceanCanvas({
           opacity: theme === "calm" && !shaderReady ? 1 : 0,
           filter: "brightness(1.12) saturate(.82)",
         }}
-        animate={reduceMotion || shaderReady ? false : { scale: [1.02, 1.07, 1.02] }}
+        animate={shaderReady ? false : { scale: [1.02, 1.07, 1.02] }}
         transition={{ duration: 30, ease: "easeInOut", repeat: Infinity }}
       />
       <canvas
