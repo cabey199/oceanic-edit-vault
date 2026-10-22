@@ -305,6 +305,7 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
     return json({ error: "Upload body must be multipart form data." }, 400);
   }
   const file = form.get("file");
+  const playback = form.get("playback");
   const thumbnail = form.get("thumbnail");
   const title = typeof form.get("title") === "string" ? String(form.get("title")).trim() : "";
   const width = Number(form.get("width"));
@@ -326,6 +327,14 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
     return json({ error: "Use an MP4, MOV, or WEBM video under 2 GB." }, 400);
   if (thumbnail.size <= 0 || thumbnail.size > maxThumbnailBytes)
     return json({ error: "The generated thumbnail is too large." }, 400);
+  if (
+    playback !== null &&
+    (!(playback instanceof File) ||
+      playback.type !== "video/mp4" ||
+      playback.size <= 0 ||
+      playback.size > maxVideoBytes)
+  )
+    return json({ error: "The playback copy is invalid." }, 400);
   if (
     !Number.isFinite(width) ||
     !Number.isFinite(height) ||
@@ -362,6 +371,10 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
   const stem = safeStem(file.name);
   const extension = file.name.split(".").pop()?.toLowerCase() || "mp4";
   const mediaKey = `archive/${auth.user.id}/${id}/original/${stem}.${extension}`;
+  const playbackKey =
+    playback instanceof File
+      ? `archive/${auth.user.id}/${id}/playback/${safeStem(playback.name)}.mp4`
+      : null;
   const thumbnailKey = `archive/${auth.user.id}/${id}/thumbnail/${safeStem(thumbnail.name)}.jpg`;
   try {
     await bucket.put(mediaKey, file.stream(), {
@@ -370,13 +383,21 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
         "content-disposition": `inline; filename="${stem}.${extension}"`,
       },
     });
+    if (playback instanceof File && playbackKey) {
+      await bucket.put(playbackKey, playback.stream(), {
+        httpMetadata: {
+          "content-type": "video/mp4",
+          "content-disposition": `inline; filename="${safeStem(playback.name)}.mp4"`,
+        },
+      });
+    }
     await bucket.put(thumbnailKey, await thumbnail.arrayBuffer(), {
       httpMetadata: {
         "content-type": thumbnail.type || "image/jpeg",
         "content-disposition": "inline",
       },
     });
-    const { error: mediaError } = await admin.from("archive_media_objects").insert([
+    const mediaObjects = [
       {
         archive_item_id: id,
         provider: "r2",
@@ -385,6 +406,18 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
         byte_size: file.size,
         content_type: file.type || "video/mp4",
       },
+      ...(playback instanceof File && playbackKey
+        ? [
+            {
+              archive_item_id: id,
+              provider: "r2",
+              kind: "playback" as const,
+              object_key: playbackKey,
+              byte_size: playback.size,
+              content_type: "video/mp4",
+            },
+          ]
+        : []),
       {
         archive_item_id: id,
         provider: "r2",
@@ -393,7 +426,8 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
         byte_size: thumbnail.size,
         content_type: thumbnail.type || "image/jpeg",
       },
-    ]);
+    ];
+    const { error: mediaError } = await admin.from("archive_media_objects").insert(mediaObjects);
     if (mediaError) throw new Error(mediaError.message);
     const { error: readyError } = await admin
       .from("archive_items")
@@ -402,7 +436,7 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
     if (readyError) throw new Error(readyError.message);
     return json({ ok: true, id });
   } catch (error) {
-    await bucket.delete([mediaKey, thumbnailKey]);
+    await bucket.delete([mediaKey, thumbnailKey, ...(playbackKey ? [playbackKey] : [])]);
     await admin.from("archive_items").update({ status: "failed" }).eq("id", id);
     return json({ error: error instanceof Error ? error.message : "Upload failed." }, 500);
   }

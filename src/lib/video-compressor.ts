@@ -102,14 +102,18 @@ export async function compressVideo(
     inputName,
     "-c:v",
     "libx264",
+    "-vf",
+    "scale=1080:1080:force_original_aspect_ratio=decrease",
     "-preset",
     "veryfast",
     "-crf",
-    "20",
+    "22",
     "-c:a",
     "aac",
     "-b:a",
     "160k",
+    "-pix_fmt",
+    "yuv420p",
     "-movflags",
     "+faststart",
     outputName,
@@ -124,15 +128,6 @@ export async function compressVideo(
   await ffmpeg.deleteFile(outputName);
   onProgress?.({ phase: "finalizing", progress: 1 });
 
-  if (
-    outputMetadata.width !== sourceMetadata.width ||
-    outputMetadata.height !== sourceMetadata.height
-  ) {
-    throw new Error(
-      `Playback compression changed the resolution from ${sourceMetadata.width}×${sourceMetadata.height} to ${outputMetadata.width}×${outputMetadata.height}.`,
-    );
-  }
-
   const durationTolerance = Math.max(0.25, sourceMetadata.duration * 0.01);
   if (Math.abs(outputMetadata.duration - sourceMetadata.duration) > durationTolerance) {
     throw new Error(
@@ -146,8 +141,8 @@ export async function compressVideo(
     inputBytes: file.size,
     outputBytes: blob.size,
     savedPercent: file.size === 0 ? 0 : Math.max(0, Math.round((1 - blob.size / file.size) * 100)),
-    width: sourceMetadata.width,
-    height: sourceMetadata.height,
+    width: outputMetadata.width,
+    height: outputMetadata.height,
     duration: sourceMetadata.duration,
   };
 }
