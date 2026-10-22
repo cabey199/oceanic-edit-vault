@@ -102,7 +102,7 @@ export function OceanCanvas({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || theme === "night" || lowPower) {
+    if (!canvas || theme === "night") {
       setShaderReady(false);
       return;
     }
@@ -172,7 +172,7 @@ export function OceanCanvas({
       const bounds = canvas.getBoundingClientRect();
       const ratio = Math.min(
         window.devicePixelRatio || 1,
-        1.25,
+        lowPower ? 1 : 1.25,
         Math.sqrt(2_000_000 / (bounds.width * bounds.height)),
       );
       canvas.width = Math.max(1, Math.round(bounds.width * ratio));
@@ -181,7 +181,13 @@ export function OceanCanvas({
       gl.uniform2f(uniforms.resolution, canvas.width, canvas.height);
     };
 
+    let lastFrame = 0;
     const render = (timestamp: number) => {
+      if (lowPower && timestamp - lastFrame < 33) {
+        frame = window.requestAnimationFrame(render);
+        return;
+      }
+      lastFrame = timestamp;
       gl.uniform1f(uniforms.time, reduceMotion ? 0 : (timestamp - startedAt) * 0.001);
       gl.uniform1f(uniforms.scroll, reduceMotion ? 0 : scrollY.get());
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -224,17 +230,17 @@ export function OceanCanvas({
         aria-hidden="true"
         className="absolute inset-[-18%] h-[136%] w-[136%] object-cover transition-opacity duration-[1400ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
         style={{
-          opacity: theme === "calm" && (!shaderReady || lowPower) ? 1 : 0,
+          opacity: theme === "calm" && !shaderReady ? 1 : 0,
           filter: "brightness(1.12) saturate(.82)",
         }}
-        animate={reduceMotion || lowPower || shaderReady ? false : { scale: [1.02, 1.07, 1.02] }}
+        animate={reduceMotion || shaderReady ? false : { scale: [1.02, 1.07, 1.02] }}
         transition={{ duration: 30, ease: "easeInOut", repeat: Infinity }}
       />
       <canvas
         ref={canvasRef}
         aria-hidden="true"
         className="absolute inset-[-8%] h-[116%] w-[116%] transition-opacity duration-[1400ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
-        style={{ opacity: theme === "calm" && shaderReady && !lowPower ? 1 : 0 }}
+        style={{ opacity: theme === "calm" && shaderReady ? 1 : 0 }}
       />
       <video
         ref={nightVideoRef}
@@ -246,7 +252,7 @@ export function OceanCanvas({
         poster={tidalStudy}
         aria-hidden="true"
         style={{
-          opacity: theme === "night" && !lowPower ? 1 : 0,
+          opacity: theme === "night" ? 1 : 0,
           filter: "brightness(.78) contrast(1.12) saturate(.9)",
         }}
       >

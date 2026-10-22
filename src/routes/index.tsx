@@ -329,12 +329,14 @@ function Index() {
   const surfaceFrame = useRef<number | null>(null);
   useEffect(() => {
     const lowPower = reduceMotion || window.matchMedia("(pointer: coarse)").matches;
-    if (lowPower) {
-      surfaceTide.set(0);
-      return;
-    }
+    let lastFrame = 0;
     const startedAt = performance.now();
     const render = (time: number) => {
+      if (lowPower && time - lastFrame < 33) {
+        surfaceFrame.current = window.requestAnimationFrame(render);
+        return;
+      }
+      lastFrame = time;
       const scrollSwell = Math.sin(scrollY.get() * 0.0022) * (theme === "night" ? 11 : 7);
       const surfaceSway =
         Math.sin((time - startedAt) * (theme === "night" ? 0.0009 : 0.00038)) *
