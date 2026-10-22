@@ -2,7 +2,6 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import {
   AnimatePresence,
   motion,
-  useAnimationFrame,
   useMotionValue,
   useReducedMotion,
   useScroll,
@@ -24,7 +23,7 @@ import {
   Upload,
   Video,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { AccountPanel } from "@/components/account-panel";
@@ -107,7 +106,9 @@ function PrivateVideoPreview({
   title: string;
 }) {
   const [source, setSource] = useState<string | null>(null);
+  const [hovering, setHovering] = useState(false);
   useEffect(() => {
+    if (!hovering) return;
     let active = true;
     void supabase.auth.getSession().then(({ data: { session } }) => {
       if (!active || !session) return;
@@ -118,27 +119,31 @@ function PrivateVideoPreview({
     return () => {
       active = false;
     };
-  }, [src]);
-  if (!source) return null;
+  }, [hovering, src]);
   return (
-    <video
-      src={source}
-      poster={poster}
-      muted
-      loop
-      playsInline
-      preload="none"
-      aria-label={`${title} preview`}
-      className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-      onMouseEnter={(event) => void event.currentTarget.play().catch(() => undefined)}
-      onMouseLeave={(event) => {
-        event.currentTarget.pause();
-        event.currentTarget.currentTime = 0;
-      }}
-      onTimeUpdate={(event) => {
-        if (event.currentTarget.currentTime >= 3) event.currentTarget.currentTime = 0;
-      }}
-    />
+    <div
+      className="absolute inset-0"
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+      aria-hidden="true"
+    >
+      {source && hovering && (
+        <video
+          src={source}
+          poster={poster}
+          muted
+          loop
+          playsInline
+          preload="none"
+          aria-label={`${title} preview`}
+          className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+          autoPlay
+          onTimeUpdate={(event) => {
+            if (event.currentTarget.currentTime >= 3) event.currentTarget.currentTime = 0;
+          }}
+        />
+      )}
+    </div>
   );
 }
 
@@ -321,19 +326,27 @@ function Index() {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  useAnimationFrame((time) => {
-    if (
-      reduceMotion ||
-      (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches)
-    ) {
+  const surfaceFrame = useRef<number | null>(null);
+  useEffect(() => {
+    const lowPower = reduceMotion || window.matchMedia("(pointer: coarse)").matches;
+    if (lowPower) {
       surfaceTide.set(0);
       return;
     }
-    const scrollSwell = Math.sin(scrollY.get() * 0.0022) * (theme === "night" ? 11 : 7);
-    const surfaceSway =
-      Math.sin(time * (theme === "night" ? 0.0009 : 0.00038)) * (theme === "night" ? 3.5 : 2);
-    surfaceTide.set(scrollSwell + surfaceSway);
-  });
+    const startedAt = performance.now();
+    const render = (time: number) => {
+      const scrollSwell = Math.sin(scrollY.get() * 0.0022) * (theme === "night" ? 11 : 7);
+      const surfaceSway =
+        Math.sin((time - startedAt) * (theme === "night" ? 0.0009 : 0.00038)) *
+        (theme === "night" ? 3.5 : 2);
+      surfaceTide.set(scrollSwell + surfaceSway);
+      surfaceFrame.current = window.requestAnimationFrame(render);
+    };
+    surfaceFrame.current = window.requestAnimationFrame(render);
+    return () => {
+      if (surfaceFrame.current !== null) window.cancelAnimationFrame(surfaceFrame.current);
+    };
+  }, [reduceMotion, scrollY, surfaceTide, theme]);
 
   const loadArchive = useCallback(async () => {
     setArchiveStatus("loading");
@@ -379,7 +392,6 @@ function Index() {
                 .toLocaleDateString(undefined, { month: "short", day: "2-digit", year: "numeric" })
                 .toUpperCase()
             : "Date unavailable",
-          createdAt: item.createdAt,
           duration: formatDuration(item.duration),
           format: item.format,
           favorite: item.favorite,

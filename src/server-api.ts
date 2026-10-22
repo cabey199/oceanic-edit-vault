@@ -53,7 +53,12 @@ type ArchiveRow = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "strict-origin-when-cross-origin",
+    },
   });
 
 function getRuntimeEnv(env: unknown): RuntimeEnv {
@@ -307,11 +312,32 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
   const duration = Number(form.get("duration"));
   const section =
     typeof form.get("section") === "string" ? String(form.get("section")).trim() : "General Vault";
+  const acceptedVideoTypes = new Set(["video/mp4", "video/quicktime", "video/webm"]);
+  const maxVideoBytes = 2 * 1024 * 1024 * 1024;
+  const maxThumbnailBytes = 10 * 1024 * 1024;
   if (!(file instanceof File) || !(thumbnail instanceof File) || !title || !width || !height)
     return json(
       { error: "Original video, thumbnail, title, width, and height are required." },
       400,
     );
+  if (title.length > 160 || section.length > 80)
+    return json({ error: "Title or vault section is too long." }, 400);
+  if (!acceptedVideoTypes.has(file.type) || file.size <= 0 || file.size > maxVideoBytes)
+    return json({ error: "Use an MP4, MOV, or WEBM video under 2 GB." }, 400);
+  if (thumbnail.size <= 0 || thumbnail.size > maxThumbnailBytes)
+    return json({ error: "The generated thumbnail is too large." }, 400);
+  if (
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0 ||
+    width > 20000 ||
+    height > 20000 ||
+    !Number.isFinite(duration) ||
+    duration < 0 ||
+    duration > 24 * 60 * 60
+  )
+    return json({ error: "Video metadata is invalid." }, 400);
 
   const itemInsert = await admin
     .from("archive_items")
@@ -476,7 +502,8 @@ async function serveMedia(
   if (!object?.body) return json({ error: "Stored media file was not found." }, 404);
   const headers = new Headers({
     "content-type": media.content_type,
-    "cache-control": "private, max-age=3600",
+    "cache-control": "private, no-store",
+    "referrer-policy": "no-referrer",
     "accept-ranges": "bytes",
     "content-length": String(range ? rangeEnd - rangeStart + 1 : totalSize),
   });
@@ -550,15 +577,7 @@ export async function handleApiRequest(request: Request, env: unknown): Promise<
   const runtime = getRuntimeEnv(env);
   const url = new URL(request.url);
   if (url.pathname === "/api/runtime-status" && request.method === "GET") {
-    return json({
-      hasSupabaseUrl: Boolean(runtime.SUPABASE_URL ?? runtime.VITE_SUPABASE_URL),
-      hasAnonKey: Boolean(runtime.SUPABASE_ANON_KEY ?? runtime.VITE_SUPABASE_ANON_KEY),
-      hasServiceRoleKey: Boolean(runtime.SUPABASE_SERVICE_ROLE_KEY),
-      hasMediaBucket: Boolean(runtime.MEDIA_BUCKET),
-      visibleBindingNames: Object.keys(runtime).filter(
-        (key) => key.includes("SUPABASE") || key.includes("BUCKET"),
-      ),
-    });
+    return json({ ok: true });
   }
   if (url.pathname === "/api/invitations") {
     if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
