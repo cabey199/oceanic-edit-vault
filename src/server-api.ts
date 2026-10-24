@@ -61,6 +61,16 @@ const json = (body: unknown, status = 200) =>
     },
   });
 
+function withDeadline<T>(operation: PromiseLike<T>, label: string, milliseconds = 15_000) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out.`)), milliseconds);
+  });
+  return Promise.race([Promise.resolve(operation), timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 function getRuntimeEnv(env: unknown): RuntimeEnv {
   const requestEnv = env && typeof env === "object" ? env : undefined;
   const globalEnv = (globalThis as typeof globalThis & { __env__?: unknown }).__env__;
@@ -295,7 +305,15 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
   const admin = createAdmin(env);
   const bucket = env.MEDIA_BUCKET;
   if (!admin || !bucket) return json({ error: "R2 media storage is not configured yet." }, 503);
-  const auth = await requireEditor(request, admin);
+  let auth: Awaited<ReturnType<typeof requireEditor>>;
+  try {
+    auth = await withDeadline(requireEditor(request, admin), "Supabase editor authorization");
+  } catch (error) {
+    return json(
+      { error: error instanceof Error ? error.message : "Supabase authorization failed." },
+      504,
+    );
+  }
   if ("error" in auth) return json({ error: auth.error }, 403);
 
   let form: FormData;
@@ -367,18 +385,24 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
   const mediaKey = `archive/${auth.user.id}/${id}/original/${stem}.${extension}`;
   const thumbnailKey = `archive/${auth.user.id}/${id}/thumbnail/${safeStem(thumbnail.name)}.jpg`;
   try {
-    await bucket.put(mediaKey, await file.arrayBuffer(), {
-      httpMetadata: {
-        "content-type": file.type || "video/mp4",
-        "content-disposition": `inline; filename="${stem}.${extension}"`,
-      },
-    });
-    await bucket.put(thumbnailKey, await thumbnail.arrayBuffer(), {
-      httpMetadata: {
-        "content-type": thumbnail.type || "image/jpeg",
-        "content-disposition": "inline",
-      },
-    });
+    await withDeadline(
+      bucket.put(mediaKey, await file.arrayBuffer(), {
+        httpMetadata: {
+          "content-type": file.type || "video/mp4",
+          "content-disposition": `inline; filename="${stem}.${extension}"`,
+        },
+      }),
+      "R2 original video upload",
+    );
+    await withDeadline(
+      bucket.put(thumbnailKey, await thumbnail.arrayBuffer(), {
+        httpMetadata: {
+          "content-type": thumbnail.type || "image/jpeg",
+          "content-disposition": "inline",
+        },
+      }),
+      "R2 thumbnail upload",
+    );
     const { error: mediaError } = await admin.from("archive_media_objects").insert([
       {
         archive_item_id: id,
