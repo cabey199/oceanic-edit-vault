@@ -147,48 +147,15 @@ function PrivateVideoPreview({
   );
 }
 
-async function createThumbnail(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob);
-  const video = document.createElement("video");
-  video.preload = "metadata";
-  video.muted = true;
-  video.src = url;
-  try {
-    await new Promise<void>((resolve, reject) => {
-      video.onloadedmetadata = () => resolve();
-      video.onerror = () => reject(new Error("The video thumbnail could not be created."));
-    });
-    await new Promise<void>((resolve, reject) => {
-      if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-        resolve();
-        return;
-      }
-      video.onloadeddata = () => resolve();
-      video.onerror = () => reject(new Error("The video thumbnail could not be created."));
-    });
-    const canvas = document.createElement("canvas");
-    const maxWidth = 900;
-    const scale = Math.min(1, maxWidth / video.videoWidth);
-    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-    canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const thumbnail = await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob(
-        (result) => (result ? resolve(result) : reject(new Error("Thumbnail creation failed."))),
-        "image/jpeg",
-        0.86,
-      ),
-    );
-    return {
-      file: new File([thumbnail], `${name.replace(/\.[^/.]+$/, "")}.jpg`, { type: "image/jpeg" }),
-      width: video.videoWidth,
-      height: video.videoHeight,
-      duration: video.duration,
-    };
-  } finally {
-    URL.revokeObjectURL(url);
-    video.remove();
-  }
+function createUploadPlaceholder(name: string) {
+  const label = name.replace(/&/g, "&amp;").replace(/</g, "&lt;").slice(0, 42);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="9" viewBox="0 0 16 9"><rect width="16" height="9" fill="#071a32"/><circle cx="13" cy="2" r="4" fill="#10b8d4" opacity=".28"/><path d="M0 8 5 4l3 2 2-1 6 3H0Z" fill="#18bfd5" opacity=".7"/><text x=".7" y="7.6" fill="#d7f8ff" font-family="sans-serif" font-size=".9">${label}</text></svg>`;
+  return {
+    file: new File([svg], `${name.replace(/\.[^/.]+$/, "")}.svg`, { type: "image/svg+xml" }),
+    width: 16,
+    height: 9,
+    duration: 0,
+  };
 }
 
 const edits: ArchiveEdit[] = [
@@ -451,7 +418,7 @@ function Index() {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) throw new Error("Your session has expired. Please sign in again.");
-      const thumbnail = await createThumbnail(original, original.name);
+      const thumbnail = createUploadPlaceholder(original.name);
       const form = new FormData();
       form.set("file", original, original.name);
       form.set("thumbnail", thumbnail.file);
