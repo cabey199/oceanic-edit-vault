@@ -427,11 +427,15 @@ function Index() {
       form.set("width", String(thumbnail.width));
       form.set("height", String(thumbnail.height));
       form.set("duration", String(thumbnail.duration));
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 90_000);
       const response = await fetch("/api/archive-items", {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: form,
+        signal: controller.signal,
       });
+      window.clearTimeout(timeout);
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "The original video could not be stored.");
       await loadArchive();
