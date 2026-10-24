@@ -45,7 +45,12 @@ type UploadDrawerProps = {
   open: boolean;
   onClose: () => void;
   onComplete: (message: string) => void;
-  onUpload?: (original: File, title: string, section: string) => Promise<void>;
+  onUpload?: (
+    original: File,
+    title: string,
+    section: string,
+    onProgress?: (progress: number) => void,
+  ) => Promise<void>;
 };
 
 type UploadPhase = "idle" | "uploading" | "ready" | "error";
@@ -77,6 +82,7 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
           selectedFile,
           title.trim() || selectedFile.name.replace(/\.[^/.]+$/, ""),
           section === "Custom" ? customSection.trim() || "General Vault" : section,
+          (uploadProgress) => setProgress(Math.max(0.05, Math.min(0.98, uploadProgress))),
         );
       setProgress(1);
       setPhase("ready");
@@ -274,25 +280,25 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
                   >
                     <motion.div
                       className="h-full bg-primary shadow-[0_0_16px_var(--primary)]"
-                      style={{ width: phase === "uploading" ? "40%" : "100%" }}
-                      animate={phase === "uploading" ? { x: ["-100%", "250%"] } : { x: 0 }}
-                      transition={
-                        phase === "uploading"
-                          ? { repeat: Infinity, duration: 1.5, ease: "easeInOut" }
-                          : { duration: 0.3 }
-                      }
+                      style={{ width: `${phase === "uploading" ? progress * 100 : 100}%` }}
+                      animate={{ x: 0 }}
+                      transition={{ duration: 0.2 }}
                     />
                   </div>
                   <div className="mt-2 flex flex-wrap justify-between gap-2 font-mono text-[9px] text-muted-foreground">
                     <span>
                       {phase === "uploading"
-                        ? "Sending the original file to private storage"
+                        ? progress > 0.05
+                          ? "Uploading original file to private storage"
+                          : "Connecting to private storage"
                         : phase === "ready"
                           ? "Stored at original quality and ready"
                           : error}
                     </span>
                     <span>
-                      {phase === "uploading" ? "Working…" : `${Math.round(progress * 100)}%`}
+                      {phase === "uploading"
+                        ? `${Math.round(progress * 100)}%`
+                        : `${Math.round(progress * 100)}%`}
                     </span>
                   </div>
                   <div className="mt-5 flex gap-2">

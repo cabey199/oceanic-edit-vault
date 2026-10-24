@@ -423,7 +423,12 @@ function Index() {
   }, []);
 
   const uploadOriginalEdit = useCallback(
-    async (original: File, title: string, section: string) => {
+    async (
+      original: File,
+      title: string,
+      section: string,
+      onProgress?: (progress: number) => void,
+    ) => {
       const {
         data: { session },
       } = await withTimeout(
@@ -441,19 +446,22 @@ function Index() {
       form.set("width", String(thumbnail.width));
       form.set("height", String(thumbnail.height));
       form.set("duration", String(thumbnail.duration));
-      const controller = new AbortController();
-      const response = await withTimeout(
-        fetch("/api/archive-items", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${session.access_token}` },
-          body: form,
-          signal: controller.signal,
-        }),
-        30_000,
-        "The upload server did not respond within 30 seconds.",
-      ).catch((error: unknown) => {
-        controller.abort();
-        throw error;
+      const response = await new Promise<Response>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/archive-items");
+        xhr.setRequestHeader("Authorization", `Bearer ${session.access_token}`);
+        xhr.timeout = 5 * 60 * 1000;
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) onProgress?.(event.loaded / event.total);
+        };
+        xhr.onload = () =>
+          resolve(
+            new Response(xhr.responseText, { status: xhr.status, statusText: xhr.statusText }),
+          );
+        xhr.onerror = () => reject(new Error("The upload connection failed."));
+        xhr.ontimeout = () => reject(new Error("The phone upload timed out after 5 minutes."));
+        xhr.onabort = () => reject(new Error("The upload was canceled."));
+        xhr.send(form);
       });
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "The original video could not be stored.");
