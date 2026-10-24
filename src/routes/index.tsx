@@ -158,9 +158,12 @@ async function createThumbnail(blob: Blob, name: string) {
       video.onloadedmetadata = () => resolve();
       video.onerror = () => reject(new Error("The video thumbnail could not be created."));
     });
-    video.currentTime = Math.min(1, Math.max(0, video.duration / 10));
     await new Promise<void>((resolve, reject) => {
-      video.onseeked = () => resolve();
+      if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        resolve();
+        return;
+      }
+      video.onloadeddata = () => resolve();
       video.onerror = () => reject(new Error("The video thumbnail could not be created."));
     });
     const canvas = document.createElement("canvas");
