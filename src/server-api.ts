@@ -339,22 +339,25 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
   )
     return json({ error: "Video metadata is invalid." }, 400);
 
-  const itemInsert = await admin
+  const baseItem = {
+    owner_id: auth.user.id,
+    title,
+    note: "Original-quality archive edit",
+    format: formatFor(width, height),
+    duration_seconds: Number.isFinite(duration) ? duration : null,
+    width,
+    height,
+    codec: file.type || "source",
+    status: "processing",
+  };
+  let itemInsert = await admin
     .from("archive_items")
-    .insert({
-      owner_id: auth.user.id,
-      title,
-      note: "Original-quality archive edit",
-      section_name: section || "General Vault",
-      format: formatFor(width, height),
-      duration_seconds: Number.isFinite(duration) ? duration : null,
-      width,
-      height,
-      codec: file.type || "source",
-      status: "processing",
-    })
+    .insert({ ...baseItem, section_name: section || "General Vault" })
     .select("id")
     .single();
+  if (itemInsert.error && /section_name|column/i.test(itemInsert.error.message)) {
+    itemInsert = await admin.from("archive_items").insert(baseItem).select("id").single();
+  }
   if (itemInsert.error || !itemInsert.data)
     return json({ error: itemInsert.error?.message ?? "Could not create archive item." }, 500);
 
