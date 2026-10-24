@@ -46,7 +46,12 @@ type UploadDrawerProps = {
   open: boolean;
   onClose: () => void;
   onComplete: (message: string) => void;
-  onUpload?: (original: File, playback: File, title: string, section: string) => Promise<void>;
+  onUpload?: (
+    original: File,
+    playback: File | null,
+    title: string,
+    section: string,
+  ) => Promise<void>;
 };
 
 type UploadPhase = "idle" | "uploading" | "ready" | "error";
@@ -73,13 +78,22 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
     setProgress(0.05);
     setPhase("uploading");
     try {
-      const compressed = await compressVideo(
-        selectedFile,
-        ({ phase: compressionPhase, progress }) => {
-          setProgress(compressionPhase === "loading" ? progress * 0.2 : 0.2 + progress * 0.35);
-        },
-      );
-      const playback = new File([compressed.blob], compressed.fileName, { type: "video/mp4" });
+      let playback: File | null = null;
+      try {
+        const compressed = await compressVideo(
+          selectedFile,
+          ({ phase: compressionPhase, progress }) => {
+            setProgress(compressionPhase === "loading" ? progress * 0.2 : 0.2 + progress * 0.35);
+          },
+        );
+        playback = new File([compressed.blob], compressed.fileName, { type: "video/mp4" });
+      } catch (compressionError) {
+        console.warn(
+          "Playback optimization was skipped; uploading the original instead.",
+          compressionError,
+        );
+        setProgress(0.55);
+      }
       if (onUpload)
         await onUpload(
           selectedFile,
@@ -264,7 +278,7 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
                       <p className="truncate text-sm font-medium">{file.name}</p>
                       <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.14em] text-primary">
                         {phase === "uploading"
-                          ? "Preparing fast phone playback + original backup"
+                          ? "Preparing secure upload and phone playback"
                           : phase === "ready"
                             ? "Original media stored · ready to play"
                             : "Upload failed"}
@@ -296,7 +310,7 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
                   <div className="mt-2 flex flex-wrap justify-between gap-2 font-mono text-[9px] text-muted-foreground">
                     <span>
                       {phase === "uploading"
-                        ? "Preparing playback, then sending both copies privately"
+                        ? "Sending the original privately; optimized playback is optional"
                         : phase === "ready"
                           ? "Stored at original quality and ready"
                           : error}

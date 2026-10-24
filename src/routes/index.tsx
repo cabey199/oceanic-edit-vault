@@ -153,35 +153,39 @@ async function createThumbnail(blob: Blob, name: string) {
   video.preload = "metadata";
   video.muted = true;
   video.src = url;
-  await new Promise<void>((resolve, reject) => {
-    video.onloadedmetadata = () => resolve();
-    video.onerror = () => reject(new Error("The compressed video thumbnail could not be created."));
-  });
-  video.currentTime = Math.min(1, Math.max(0, video.duration / 10));
-  await new Promise<void>((resolve, reject) => {
-    video.onseeked = () => resolve();
-    video.onerror = () => reject(new Error("The compressed video thumbnail could not be created."));
-  });
-  const canvas = document.createElement("canvas");
-  const maxWidth = 900;
-  const scale = Math.min(1, maxWidth / video.videoWidth);
-  canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-  canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-  canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
-  const thumbnail = await new Promise<Blob>((resolve, reject) =>
-    canvas.toBlob(
-      (result) => (result ? resolve(result) : reject(new Error("Thumbnail creation failed."))),
-      "image/jpeg",
-      0.86,
-    ),
-  );
-  URL.revokeObjectURL(url);
-  return {
-    file: new File([thumbnail], `${name.replace(/\.[^/.]+$/, "")}.jpg`, { type: "image/jpeg" }),
-    width: video.videoWidth,
-    height: video.videoHeight,
-    duration: video.duration,
-  };
+  try {
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => resolve();
+      video.onerror = () => reject(new Error("The video thumbnail could not be created."));
+    });
+    video.currentTime = Math.min(1, Math.max(0, video.duration / 10));
+    await new Promise<void>((resolve, reject) => {
+      video.onseeked = () => resolve();
+      video.onerror = () => reject(new Error("The video thumbnail could not be created."));
+    });
+    const canvas = document.createElement("canvas");
+    const maxWidth = 900;
+    const scale = Math.min(1, maxWidth / video.videoWidth);
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+    canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const thumbnail = await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (result) => (result ? resolve(result) : reject(new Error("Thumbnail creation failed."))),
+        "image/jpeg",
+        0.86,
+      ),
+    );
+    return {
+      file: new File([thumbnail], `${name.replace(/\.[^/.]+$/, "")}.jpg`, { type: "image/jpeg" }),
+      width: video.videoWidth,
+      height: video.videoHeight,
+      duration: video.duration,
+    };
+  } finally {
+    URL.revokeObjectURL(url);
+    video.remove();
+  }
 }
 
 const edits: ArchiveEdit[] = [
@@ -439,7 +443,7 @@ function Index() {
   }, []);
 
   const uploadOriginalEdit = useCallback(
-    async (original: File, playback: File, title: string, section: string) => {
+    async (original: File, playback: File | null, title: string, section: string) => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -447,7 +451,7 @@ function Index() {
       const thumbnail = await createThumbnail(original, original.name);
       const form = new FormData();
       form.set("file", original, original.name);
-      form.set("playback", playback, playback.name);
+      if (playback) form.set("playback", playback, playback.name);
       form.set("thumbnail", thumbnail.file);
       form.set("title", title);
       form.set("section", section || "General Vault");
