@@ -62,6 +62,16 @@ function formatDuration(seconds: number) {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
+function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string) {
+  let timer: number | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = window.setTimeout(() => reject(new Error(message)), milliseconds);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer !== undefined) window.clearTimeout(timer);
+  });
+}
+
 function PrivateThumbnail({
   src,
   alt,
@@ -416,7 +426,11 @@ function Index() {
     async (original: File, title: string, section: string) => {
       const {
         data: { session },
-      } = await supabase.auth.getSession();
+      } = await withTimeout(
+        supabase.auth.getSession(),
+        15_000,
+        "Supabase session lookup timed out before the upload could start.",
+      );
       if (!session) throw new Error("Your session has expired. Please sign in again.");
       const thumbnail = createUploadPlaceholder(original.name);
       const form = new FormData();
@@ -428,14 +442,19 @@ function Index() {
       form.set("height", String(thumbnail.height));
       form.set("duration", String(thumbnail.duration));
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 90_000);
-      const response = await fetch("/api/archive-items", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: form,
-        signal: controller.signal,
+      const response = await withTimeout(
+        fetch("/api/archive-items", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: form,
+          signal: controller.signal,
+        }),
+        30_000,
+        "The upload server did not respond within 30 seconds.",
+      ).catch((error: unknown) => {
+        controller.abort();
+        throw error;
       });
-      window.clearTimeout(timeout);
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "The original video could not be stored.");
       await loadArchive();
