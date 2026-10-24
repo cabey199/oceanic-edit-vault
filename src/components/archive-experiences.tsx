@@ -24,7 +24,6 @@ import { type ChangeEvent, type DragEvent, useEffect, useRef, useState } from "r
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import { cancelCompression, compressVideo } from "@/lib/video-compressor";
 
 export type ArchiveEdit = {
   id: number | string;
@@ -46,12 +45,7 @@ type UploadDrawerProps = {
   open: boolean;
   onClose: () => void;
   onComplete: (message: string) => void;
-  onUpload?: (
-    original: File,
-    playback: File | null,
-    title: string,
-    section: string,
-  ) => Promise<void>;
+  onUpload?: (original: File, title: string, section: string) => Promise<void>;
 };
 
 type UploadPhase = "idle" | "uploading" | "ready" | "error";
@@ -78,26 +72,9 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
     setProgress(0.05);
     setPhase("uploading");
     try {
-      let playback: File | null = null;
-      try {
-        const compressed = await compressVideo(
-          selectedFile,
-          ({ phase: compressionPhase, progress }) => {
-            setProgress(compressionPhase === "loading" ? progress * 0.2 : 0.2 + progress * 0.35);
-          },
-        );
-        playback = new File([compressed.blob], compressed.fileName, { type: "video/mp4" });
-      } catch (compressionError) {
-        console.warn(
-          "Playback optimization was skipped; uploading the original instead.",
-          compressionError,
-        );
-        setProgress(0.55);
-      }
       if (onUpload)
         await onUpload(
           selectedFile,
-          playback,
           title.trim() || selectedFile.name.replace(/\.[^/.]+$/, ""),
           section === "Custom" ? customSection.trim() || "General Vault" : section,
         );
@@ -130,7 +107,6 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
     chooseFile(event.dataTransfer.files[0]);
   };
   const reset = () => {
-    cancelCompression();
     setFile(null);
     setTitle("");
     setSection("General Vault");
@@ -278,7 +254,7 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
                       <p className="truncate text-sm font-medium">{file.name}</p>
                       <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.14em] text-primary">
                         {phase === "uploading"
-                          ? "Preparing secure upload and phone playback"
+                          ? "Uploading original media securely"
                           : phase === "ready"
                             ? "Original media stored · ready to play"
                             : "Upload failed"}
@@ -310,7 +286,7 @@ export function UploadDrawer({ open, onClose, onComplete, onUpload }: UploadDraw
                   <div className="mt-2 flex flex-wrap justify-between gap-2 font-mono text-[9px] text-muted-foreground">
                     <span>
                       {phase === "uploading"
-                        ? "Sending the original privately; optimized playback is optional"
+                        ? "Sending the original file to private storage"
                         : phase === "ready"
                           ? "Stored at original quality and ready"
                           : error}

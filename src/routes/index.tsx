@@ -443,7 +443,7 @@ function Index() {
   }, []);
 
   const uploadOriginalEdit = useCallback(
-    async (original: File, playback: File | null, title: string, section: string) => {
+    async (original: File, title: string, section: string) => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -451,7 +451,6 @@ function Index() {
       const thumbnail = await createThumbnail(original, original.name);
       const form = new FormData();
       form.set("file", original, original.name);
-      if (playback) form.set("playback", playback, playback.name);
       form.set("thumbnail", thumbnail.file);
       form.set("title", title);
       form.set("section", section || "General Vault");
