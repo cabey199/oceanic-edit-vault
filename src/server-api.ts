@@ -197,6 +197,11 @@ function formatFor(width: number, height: number): "9:16" | "16:9" {
   return height > width ? "9:16" : "16:9";
 }
 
+function sectionFromLegacyNote(note: string | null) {
+  const match = note?.match(/\s· Section: (.+)$/);
+  return match?.[1] ?? null;
+}
+
 async function listArchiveItems(request: Request, env: RuntimeEnv) {
   const admin = createAdmin(env);
   if (!admin) return json({ error: "Archive service is not configured yet." }, 503);
@@ -224,7 +229,10 @@ async function listArchiveItems(request: Request, env: RuntimeEnv) {
       .eq("archived", false)
       .in("status", ["ready", "processing"])
       .order("created_at", { ascending: false });
-    archiveData = (legacyResult.data ?? []).map((item) => ({ ...item, section_name: null }));
+    archiveData = (legacyResult.data ?? []).map((item) => ({
+      ...item,
+      section_name: sectionFromLegacyNote(item.note),
+    }));
     archiveError = legacyResult.error;
   }
   if (archiveError) return json({ error: archiveError.message }, 500);
@@ -374,7 +382,17 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
     .select("id")
     .single();
   if (itemInsert.error && /section_name|column/i.test(itemInsert.error.message)) {
-    itemInsert = await admin.from("archive_items").insert(baseItem).select("id").single();
+    itemInsert = await admin
+      .from("archive_items")
+      .insert({
+        ...baseItem,
+        note:
+          section && section !== "General Vault"
+            ? `${baseItem.note} · Section: ${section}`
+            : baseItem.note,
+      })
+      .select("id")
+      .single();
   }
   if (itemInsert.error || !itemInsert.data)
     return json({ error: itemInsert.error?.message ?? "Could not create archive item." }, 500);
