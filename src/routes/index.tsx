@@ -168,6 +168,49 @@ function createUploadPlaceholder(name: string) {
   };
 }
 
+async function createRealThumbnail(original: File) {
+  const url = URL.createObjectURL(original);
+  const video = document.createElement("video");
+  video.preload = "metadata";
+  video.muted = true;
+  video.playsInline = true;
+  video.src = url;
+  try {
+    await Promise.race([
+      new Promise<void>((resolve, reject) => {
+        video.onloadeddata = () => resolve();
+        video.onerror = () => reject(new Error("Video frame unavailable."));
+      }),
+      new Promise<never>((_, reject) =>
+        window.setTimeout(() => reject(new Error("Thumbnail generation timed out.")), 8_000),
+      ),
+    ]);
+    const canvas = document.createElement("canvas");
+    const scale = Math.min(1, 900 / Math.max(video.videoWidth, 1));
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+    canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (result) => (result ? resolve(result) : reject(new Error("Thumbnail creation failed."))),
+        "image/jpeg",
+        0.86,
+      ),
+    );
+    return {
+      file: new File([blob], `${original.name.replace(/\.[^/.]+$/, "")}.jpg`, {
+        type: "image/jpeg",
+      }),
+      width: video.videoWidth,
+      height: video.videoHeight,
+      duration: Number.isFinite(video.duration) ? video.duration : 0,
+    };
+  } finally {
+    URL.revokeObjectURL(url);
+    video.remove();
+  }
+}
+
 const edits: ArchiveEdit[] = [
   {
     id: 1,
@@ -238,6 +281,7 @@ const edits: ArchiveEdit[] = [
 ];
 
 const filters: Category[] = ["All Edits", "TikTok / Reels", "Landscape", "Favorites"];
+const defaultVaultSections = ["General Vault", "CapCut", "Raw Videos", "Personal Videos"];
 
 export const Route = createFileRoute("/")({
   beforeLoad: async () => {
@@ -286,7 +330,7 @@ function Index() {
   const [notice, setNotice] = useState<string | null>(null);
   const [archiveStatus, setArchiveStatus] = useState<"loading" | "ready" | "error">("loading");
   const [theme, setTheme] = useState<OceanTheme>("calm");
-  const [sectionFilters, setSectionFilters] = useState<string[]>([]);
+  const [sectionFilters, setSectionFilters] = useState<string[]>(defaultVaultSections);
   const [moreOpen, setMoreOpen] = useState<string | number | null>(null);
   const { scrollY } = useScroll();
   const lenis = useSmoothScroll();
@@ -386,7 +430,12 @@ function Index() {
         })),
       );
       setSectionFilters(
-        Array.from(new Set(payload.items.map((item) => item.section ?? "General Vault"))),
+        Array.from(
+          new Set([
+            ...defaultVaultSections,
+            ...payload.items.map((item) => item.section ?? "General Vault"),
+          ]),
+        ),
       );
       setArchiveStatus("ready");
     } catch {
@@ -463,10 +512,27 @@ function Index() {
         xhr.onabort = () => reject(new Error("The upload was canceled."));
         xhr.send(form);
       });
-      const payload = (await response.json()) as { error?: string };
+      const payload = (await response.json()) as { error?: string; id?: string };
       if (!response.ok) throw new Error(payload.error ?? "The original video could not be stored.");
       await loadArchive();
       setUploadOpen(false);
+      if (payload.id) {
+        void createRealThumbnail(original)
+          .then(async (realThumbnail) => {
+            const replacement = new FormData();
+            replacement.set("thumbnail", realThumbnail.file);
+            replacement.set("width", String(realThumbnail.width));
+            replacement.set("height", String(realThumbnail.height));
+            replacement.set("duration", String(realThumbnail.duration));
+            const thumbnailResponse = await fetch(`/api/archive-items/${payload.id}/thumbnail`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${session.access_token}` },
+              body: replacement,
+            });
+            if (thumbnailResponse.ok) await loadArchive();
+          })
+          .catch(() => undefined);
+      }
     },
     [loadArchive],
   );
@@ -762,7 +828,7 @@ function Index() {
 
             <div className="my-8 space-y-4" aria-label="Filter edits">
               <div>
-                <p className="mb-2 text-sm font-medium text-foreground">Browse by shape</p>
+                <p className="mb-2 text-sm font-medium text-foreground">Browse by format</p>
                 <div
                   className="ios-scroll-x no-scrollbar flex gap-2 overflow-x-auto pb-1"
                   role="group"
@@ -776,7 +842,11 @@ function Index() {
                       onClick={() => setActiveFilter(filter)}
                       className={`min-h-11 shrink-0 rounded-full border px-4 text-sm ${activeFilter === filter ? "border-primary bg-primary/10 text-primary shadow-[0_0_18px_var(--primary-glow)]" : "border-border bg-card/30 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"}`}
                     >
-                      {filter === "TikTok / Reels" ? "Portrait" : filter}
+                      {filter === "TikTok / Reels"
+                        ? "Vertical"
+                        : filter === "Landscape"
+                          ? "Wide"
+                          : filter}
                     </Button>
                   ))}
                 </div>

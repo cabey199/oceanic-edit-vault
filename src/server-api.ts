@@ -453,6 +453,66 @@ async function createArchiveItem(request: Request, env: RuntimeEnv) {
   }
 }
 
+async function replaceArchiveThumbnail(request: Request, env: RuntimeEnv, itemId: string) {
+  const admin = createAdmin(env);
+  const bucket = env.MEDIA_BUCKET;
+  if (!admin || !bucket) return json({ error: "R2 media storage is not configured yet." }, 503);
+  const auth = await requireEditor(request, admin);
+  if ("error" in auth) return json({ error: auth.error }, 403);
+  let form: FormData;
+  try {
+    form = await request.formData();
+  } catch {
+    return json({ error: "Thumbnail body must be multipart form data." }, 400);
+  }
+  const thumbnail = form.get("thumbnail");
+  const width = Number(form.get("width"));
+  const height = Number(form.get("height"));
+  const duration = Number(form.get("duration"));
+  if (!(thumbnail instanceof File) || thumbnail.size <= 0 || !width || !height)
+    return json({ error: "A valid thumbnail and video metadata are required." }, 400);
+  const { data: item, error: itemError } = await admin
+    .from("archive_items")
+    .select("owner_id,archive_media_objects(kind,object_key)")
+    .eq("id", itemId)
+    .maybeSingle();
+  if (itemError || !item) return json({ error: "Archive item was not found." }, 404);
+  if (item.owner_id !== auth.user.id)
+    return json({ error: "You can only update your own uploads." }, 403);
+  const thumbnailObject = (
+    (item.archive_media_objects ?? []) as Array<{ kind: string; object_key: string }>
+  ).find((media) => media.kind === "thumbnail");
+  if (!thumbnailObject) return json({ error: "The stored thumbnail was not found." }, 404);
+  try {
+    await withDeadline(
+      bucket.put(thumbnailObject.object_key, await thumbnail.arrayBuffer(), {
+        httpMetadata: {
+          "content-type": thumbnail.type || "image/jpeg",
+          "content-disposition": "inline",
+        },
+      }),
+      "R2 thumbnail replacement",
+    );
+    const { error: mediaError } = await admin
+      .from("archive_media_objects")
+      .update({ byte_size: thumbnail.size, content_type: thumbnail.type || "image/jpeg" })
+      .eq("archive_item_id", itemId)
+      .eq("kind", "thumbnail");
+    if (mediaError) throw new Error(mediaError.message);
+    const { error: itemUpdateError } = await admin
+      .from("archive_items")
+      .update({ width, height, duration_seconds: Number.isFinite(duration) ? duration : 0 })
+      .eq("id", itemId);
+    if (itemUpdateError) throw new Error(itemUpdateError.message);
+    return json({ ok: true });
+  } catch (error) {
+    return json(
+      { error: error instanceof Error ? error.message : "Thumbnail replacement failed." },
+      500,
+    );
+  }
+}
+
 async function deleteArchiveItem(request: Request, env: RuntimeEnv, itemId: string) {
   const admin = createAdmin(env);
   const bucket = env.MEDIA_BUCKET;
@@ -637,6 +697,10 @@ export async function handleApiRequest(request: Request, env: unknown): Promise<
   const itemDeleteId = itemDeleteMatch?.[1];
   if (itemDeleteId && request.method === "DELETE")
     return deleteArchiveItem(request, runtime, itemDeleteId);
+  const thumbnailMatch = url.pathname.match(/^\/api\/archive-items\/([^/]+)\/thumbnail$/);
+  const thumbnailItemId = thumbnailMatch?.[1];
+  if (thumbnailItemId && request.method === "POST")
+    return replaceArchiveThumbnail(request, runtime, thumbnailItemId);
   if (itemDeleteId && request.method === "PATCH")
     return updateFavorite(request, runtime, itemDeleteId);
   if (url.pathname === "/api/archive-stats" && request.method === "GET")
