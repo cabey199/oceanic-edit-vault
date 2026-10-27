@@ -998,14 +998,14 @@ function Index() {
                               </Button>
                             </div>
                             {moreOpen === edit.id && (
-                              <div className="mt-2 flex gap-2 border-t border-border/60 pt-2">
+                              <div className="mt-2 grid min-w-0 grid-cols-2 gap-2 border-t border-border/60 pt-2">
                                 <Button
                                   variant="ghost"
                                   onClick={() => {
                                     setMoreOpen(null);
                                     void shareEdit(edit);
                                   }}
-                                  className="min-h-10 flex-1 justify-start gap-2 text-sm"
+                                  className="min-h-10 min-w-0 justify-center gap-1 px-2 text-xs sm:justify-start sm:gap-2 sm:px-3 sm:text-sm"
                                 >
                                   <Share2 className="size-4" /> Share
                                 </Button>
@@ -1015,7 +1015,7 @@ function Index() {
                                     setMoreOpen(null);
                                     void deleteEdit(edit);
                                   }}
-                                  className="min-h-10 flex-1 justify-start gap-2 text-sm text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                  className="min-h-10 min-w-0 justify-center gap-1 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive sm:justify-start sm:gap-2 sm:px-3 sm:text-sm"
                                 >
                                   <Trash2 className="size-4" /> Delete
                                 </Button>
