@@ -264,7 +264,6 @@ async function getArchiveStats(request: Request, env: RuntimeEnv) {
   const { data, error } = await admin
     .from("archive_media_objects")
     .select("kind,provider,byte_size,archive_items!inner(owner_id,status,archived)")
-    .eq("archive_items.owner_id", auth.user.id)
     .eq("archive_items.archived", false)
     .neq("archive_items.status", "failed");
   if (error) return json({ error: error.message }, 500);
@@ -296,7 +295,6 @@ async function getArchiveStats(request: Request, env: RuntimeEnv) {
   const { count, error: countError } = await admin
     .from("archive_items")
     .select("id", { count: "exact", head: true })
-    .eq("owner_id", auth.user.id)
     .eq("archived", false)
     .neq("status", "failed");
   if (countError) return json({ error: countError.message }, 500);
